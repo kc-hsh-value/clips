@@ -11,6 +11,7 @@ import { CampaignClippersManager } from '@/components/admin/campaign-clippers-ma
 import { CampaignSubmissions } from '@/components/admin/campaign-submissions';
 import { RefreshViewsButton } from '@/components/admin/refresh-views-button';
 import { ClipperLeaderboard } from '@/components/admin/clipper-leaderboard';
+import { EndCampaignButton } from '@/components/admin/end-campaign-button';
 
 interface CampaignPageProps {
   params: Promise<{ id: string }>;
@@ -71,6 +72,9 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
             <p className="text-gray-600 mt-1">{campaign.description}</p>
           )}
         </div>
+        {campaign.status === 'active' && (
+          <EndCampaignButton campaignId={campaign.id} campaignName={campaign.name} />
+        )}
       </div>
 
       {/* Campaign Stats */}

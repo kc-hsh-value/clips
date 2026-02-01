@@ -94,7 +94,7 @@ export async function POST(request: Request) {
         user_id: clipperId,
         type: 'payout_ready',
         title: 'Payout Ready',
-        message: `Your payout of $${payout.finalAmount.toFixed(2)} for ${campaign.name} is ready!`,
+        message: `Your payout of $${data.totalEarnings.toFixed(2)} for ${campaign.name} is ready!`,
       });
     }
 
