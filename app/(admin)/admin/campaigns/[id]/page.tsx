@@ -23,15 +23,23 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
 
   const { data: campaign } = await supabase
     .from('campaigns')
-    .select(`
-      *,
-      creator:profiles!campaigns_created_by_fkey(full_name, email)
-    `)
+    .select('*')
     .eq('id', id)
     .single();
 
   if (!campaign) {
     notFound();
+  }
+
+  // Fetch creator info separately (created_by might not exist yet)
+  let creator: { full_name: string | null; email: string } | null = null;
+  if (campaign.created_by) {
+    const { data: creatorData } = await supabase
+      .from('profiles')
+      .select('full_name, email')
+      .eq('id', campaign.created_by)
+      .single();
+    creator = creatorData;
   }
 
   // Get campaign stats
@@ -74,9 +82,9 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
           {campaign.description && (
             <p className="text-gray-600 mt-1">{campaign.description}</p>
           )}
-          {campaign.creator && (
+          {creator && (
             <p className="text-sm text-gray-500 mt-1">
-              Created by {campaign.creator.full_name || campaign.creator.email}
+              Created by {creator.full_name || creator.email}
             </p>
           )}
         </div>
