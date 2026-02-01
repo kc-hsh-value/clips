@@ -24,6 +24,7 @@ export default function NewCampaignPage() {
     rate_per_1k: '4.00',
     multiplier_100k: '1.25',
     multiplier_250k: '1.50',
+    max_payout_per_video: '',
     status: 'draft' as 'draft' | 'active' | 'completed',
   });
 
@@ -40,6 +41,7 @@ export default function NewCampaignPage() {
       rate_per_1k: parseFloat(form.rate_per_1k),
       multiplier_100k: parseFloat(form.multiplier_100k),
       multiplier_250k: parseFloat(form.multiplier_250k),
+      max_payout_per_video: form.max_payout_per_video ? parseFloat(form.max_payout_per_video) : null,
       status: form.status,
     });
 
@@ -149,6 +151,22 @@ export default function NewCampaignPage() {
                   required
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="max_payout">Max Payout Per Video ($)</Label>
+              <Input
+                id="max_payout"
+                type="number"
+                step="0.01"
+                min="0"
+                value={form.max_payout_per_video}
+                onChange={(e) => setForm({ ...form, max_payout_per_video: e.target.value })}
+                placeholder="Leave empty for no cap"
+              />
+              <p className="text-sm text-gray-500">
+                Optional: Cap the maximum payout for a single video (e.g., for viral videos)
+              </p>
             </div>
 
             <div className="space-y-2">

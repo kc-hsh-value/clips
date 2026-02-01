@@ -3,6 +3,8 @@ export interface PayoutCalculation {
   baseAmount: number;
   multiplier: number;
   finalAmount: number;
+  cappedAmount: number;
+  wasCapped: boolean;
   tier: 'standard' | 'bronze' | 'silver';
 }
 
@@ -10,7 +12,8 @@ export function calculatePayout(
   totalViews: number,
   ratePerK: number = 4,
   multiplier100k: number = 1.25,
-  multiplier250k: number = 1.5
+  multiplier250k: number = 1.5,
+  maxPayoutPerVideo: number | null = null
 ): PayoutCalculation {
   const baseAmount = (totalViews / 1000) * ratePerK;
   let multiplier = 1.0;
@@ -24,11 +27,17 @@ export function calculatePayout(
     tier = 'bronze';
   }
 
+  const calculatedAmount = Math.round(baseAmount * multiplier * 100) / 100;
+  const wasCapped = maxPayoutPerVideo !== null && calculatedAmount > maxPayoutPerVideo;
+  const cappedAmount = wasCapped ? maxPayoutPerVideo : calculatedAmount;
+
   return {
     totalViews,
     baseAmount: Math.round(baseAmount * 100) / 100,
     multiplier,
-    finalAmount: Math.round(baseAmount * multiplier * 100) / 100,
+    finalAmount: calculatedAmount,
+    cappedAmount,
+    wasCapped,
     tier,
   };
 }

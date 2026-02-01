@@ -10,6 +10,7 @@ import { formatViews, formatCurrency } from '@/lib/payout';
 import { CampaignClippersManager } from '@/components/admin/campaign-clippers-manager';
 import { CampaignSubmissions } from '@/components/admin/campaign-submissions';
 import { RefreshViewsButton } from '@/components/admin/refresh-views-button';
+import { ClipperLeaderboard } from '@/components/admin/clipper-leaderboard';
 
 interface CampaignPageProps {
   params: Promise<{ id: string }>;
@@ -131,7 +132,7 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
           <CardTitle>Payment Settings</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-3 gap-6">
+          <div className="grid grid-cols-4 gap-6">
             <div>
               <p className="text-sm text-gray-600">Rate per 1K views</p>
               <p className="text-lg font-semibold">{formatCurrency(campaign.rate_per_1k)}</p>
@@ -144,9 +145,26 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
               <p className="text-sm text-gray-600">250K+ Multiplier</p>
               <p className="text-lg font-semibold">{campaign.multiplier_250k}x</p>
             </div>
+            <div>
+              <p className="text-sm text-gray-600">Max Payout Per Video</p>
+              <p className="text-lg font-semibold">
+                {campaign.max_payout_per_video 
+                  ? formatCurrency(campaign.max_payout_per_video)
+                  : 'No cap'}
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Clipper Leaderboard */}
+      <ClipperLeaderboard 
+        campaignId={id}
+        ratePerK={campaign.rate_per_1k}
+        multiplier100k={campaign.multiplier_100k}
+        multiplier250k={campaign.multiplier_250k}
+        maxPayoutPerVideo={campaign.max_payout_per_video}
+      />
 
       {/* Clippers Management */}
       <CampaignClippersManager campaignId={id} />

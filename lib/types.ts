@@ -23,6 +23,7 @@ export interface Campaign {
   rate_per_1k: number;
   multiplier_100k: number;
   multiplier_250k: number;
+  max_payout_per_video: number | null;
   status: CampaignStatus;
   created_at: string;
   updated_at: string;

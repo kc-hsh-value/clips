@@ -102,6 +102,7 @@ export default function RegisterPage() {
           {googleLoading ? 'Signing up...' : 'Continue with Google'}
         </Button>
 
+        {/* Email registration temporarily disabled due to rate limits
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
             <Separator className="w-full" />
@@ -150,6 +151,7 @@ export default function RegisterPage() {
             {loading ? 'Creating account...' : 'Create account'}
           </Button>
         </form>
+        */}
       </CardContent>
       <CardFooter>
         <p className="text-sm text-center text-gray-600 w-full">
