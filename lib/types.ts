@@ -1,6 +1,6 @@
 export type UserRole = 'admin' | 'clipper';
 export type UserStatus = 'pending' | 'approved' | 'rejected';
-export type CampaignStatus = 'draft' | 'active' | 'completed';
+export type CampaignStatus = 'draft' | 'active' | 'completed' | 'hidden';
 export type SubmissionStatus = 'pending' | 'approved' | 'rejected';
 export type PayoutStatus = 'pending' | 'processed' | 'paid';
 
