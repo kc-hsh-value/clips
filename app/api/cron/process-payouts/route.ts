@@ -49,14 +49,26 @@ export async function POST(request: Request) {
 
     if (!submissions) continue;
 
-    // Group by clipper and sum views
-    const clipperViews: Record<string, number> = {};
+    // Group by clipper and calculate earnings per submission (respecting cap)
+    const clipperEarnings: Record<string, { totalViews: number; totalEarnings: number }> = {};
     submissions.forEach((s) => {
-      clipperViews[s.clipper_id] = (clipperViews[s.clipper_id] || 0) + s.views;
+      const payout = calculatePayout(
+        s.views,
+        campaign.rate_per_1k,
+        campaign.multiplier_100k,
+        campaign.multiplier_250k,
+        campaign.max_payout_per_video
+      );
+      
+      if (!clipperEarnings[s.clipper_id]) {
+        clipperEarnings[s.clipper_id] = { totalViews: 0, totalEarnings: 0 };
+      }
+      clipperEarnings[s.clipper_id].totalViews += s.views;
+      clipperEarnings[s.clipper_id].totalEarnings += payout.cappedAmount;
     });
 
     // Create payouts for each clipper
-    for (const [clipperId, totalViews] of Object.entries(clipperViews)) {
+    for (const [clipperId, data] of Object.entries(clipperEarnings)) {
       // Check if payout already exists
       const { data: existingPayout } = await supabase
         .from('payouts')
@@ -67,20 +79,13 @@ export async function POST(request: Request) {
 
       if (existingPayout) continue;
 
-      const payout = calculatePayout(
-        totalViews,
-        campaign.rate_per_1k,
-        campaign.multiplier_100k,
-        campaign.multiplier_250k
-      );
-
       await supabase.from('payouts').insert({
         campaign_id: campaign.id,
         clipper_id: clipperId,
-        total_views: totalViews,
-        base_amount: payout.baseAmount,
-        multiplier: payout.multiplier,
-        final_amount: payout.finalAmount,
+        total_views: data.totalViews,
+        base_amount: data.totalEarnings,
+        multiplier: 1,
+        final_amount: data.totalEarnings,
         status: 'pending',
       });
 

@@ -51,9 +51,10 @@ export default async function EarningsPage() {
         s.views,
         s.campaign.rate_per_1k,
         s.campaign.multiplier_100k,
-        s.campaign.multiplier_250k
+        s.campaign.multiplier_250k,
+        s.campaign.max_payout_per_video
       );
-      potentialEarnings += payout.finalAmount;
+      potentialEarnings += payout.cappedAmount;
     }
   });
 
@@ -149,7 +150,8 @@ export default async function EarningsPage() {
                       submission.views,
                       submission.campaign.rate_per_1k,
                       submission.campaign.multiplier_100k,
-                      submission.campaign.multiplier_250k
+                      submission.campaign.multiplier_250k,
+                      submission.campaign.max_payout_per_video
                     )
                   : null;
 
@@ -165,6 +167,11 @@ export default async function EarningsPage() {
                         {payout && payout.multiplier > 1 && (
                           <span className="text-green-600 ml-2">
                             × {payout.multiplier}x bonus!
+                          </span>
+                        )}
+                        {payout && payout.wasCapped && (
+                          <span className="text-orange-600 ml-2">
+                            (capped)
                           </span>
                         )}
                       </p>
