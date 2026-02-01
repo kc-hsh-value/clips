@@ -39,17 +39,19 @@ export function ClipperLeaderboard({
       const supabase = createClient();
 
       // Get all approved submissions for this campaign with clipper info
-      const { data: submissions } = await supabase
+      const { data: submissions, error } = await supabase
         .from('submissions')
         .select(`
           views,
           clipper_id,
-          clipper:profiles!clipper_id(id, name, email)
+          clipper:profiles(id, full_name, email)
         `)
         .eq('campaign_id', campaignId)
         .eq('status', 'approved');
 
-      if (!submissions) {
+      console.log('Leaderboard query:', { submissions, error });
+
+      if (!submissions || submissions.length === 0) {
         setLoading(false);
         return;
       }
@@ -58,7 +60,7 @@ export function ClipperLeaderboard({
       const clipperMap = new Map<string, ClipperStats>();
 
       for (const sub of submissions) {
-        const clipper = sub.clipper as unknown as { id: string; name: string; email: string };
+        const clipper = sub.clipper as unknown as { id: string; full_name: string | null; email: string } | null;
         if (!clipper) continue;
 
         const existing = clipperMap.get(clipper.id);
@@ -75,7 +77,7 @@ export function ClipperLeaderboard({
         } else {
           clipperMap.set(clipper.id, {
             clipper_id: clipper.id,
-            clipper_name: clipper.name || 'Unknown',
+            clipper_name: clipper.full_name || 'Unknown',
             clipper_email: clipper.email,
             total_views: views,
             submission_count: 1,
