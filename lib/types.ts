@@ -25,8 +25,10 @@ export interface Campaign {
   multiplier_250k: number;
   max_payout_per_video: number | null;
   status: CampaignStatus;
+  created_by: string | null;
   created_at: string;
   updated_at: string;
+  creator?: { full_name: string | null; email: string } | null;
 }
 
 export interface CampaignClipper {

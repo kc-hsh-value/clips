@@ -33,6 +33,10 @@ export default function NewCampaignPage() {
     setLoading(true);
 
     const supabase = createClient();
+    
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
     const { error } = await supabase.from('campaigns').insert({
       name: form.name,
       description: form.description || null,
@@ -43,6 +47,7 @@ export default function NewCampaignPage() {
       multiplier_250k: parseFloat(form.multiplier_250k),
       max_payout_per_video: form.max_payout_per_video ? parseFloat(form.max_payout_per_video) : null,
       status: form.status,
+      created_by: user?.id,
     });
 
     if (error) {

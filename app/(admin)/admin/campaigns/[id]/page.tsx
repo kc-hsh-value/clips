@@ -23,7 +23,10 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
 
   const { data: campaign } = await supabase
     .from('campaigns')
-    .select('*')
+    .select(`
+      *,
+      creator:profiles!campaigns_created_by_fkey(full_name, email)
+    `)
     .eq('id', id)
     .single();
 
@@ -70,6 +73,11 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
           </div>
           {campaign.description && (
             <p className="text-gray-600 mt-1">{campaign.description}</p>
+          )}
+          {campaign.creator && (
+            <p className="text-sm text-gray-500 mt-1">
+              Created by {campaign.creator.full_name || campaign.creator.email}
+            </p>
           )}
         </div>
         {campaign.status === 'active' && (

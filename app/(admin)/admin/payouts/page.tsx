@@ -6,6 +6,7 @@ import { formatCurrency, formatViews, calculatePayout } from '@/lib/payout';
 import { format } from 'date-fns';
 import { ExportPayoutsButton } from '@/components/admin/export-payouts-button';
 import { GeneratePayoutsButton } from '@/components/admin/generate-payouts-button';
+import { PayoutActions } from '@/components/admin/payout-actions';
 
 export default async function PayoutsPage() {
   const supabase = await createClient();
@@ -85,6 +86,9 @@ export default async function PayoutsPage() {
                     <p className="text-sm text-gray-500">
                       Base: {formatCurrency(payout.base_amount)}
                     </p>
+                  </div>
+                  <div className="ml-4">
+                    <PayoutActions payoutId={payout.id} status={payout.status} />
                   </div>
                 </div>
               ))}
