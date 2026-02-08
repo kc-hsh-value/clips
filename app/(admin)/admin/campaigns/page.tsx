@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { Plus, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import { HideCampaignButton } from '@/components/admin/hide-campaign-button';
+import { DeleteCampaignButton } from '@/components/admin/delete-campaign-button';
 
 interface CampaignWithCounts {
   id: string;
@@ -20,7 +21,9 @@ interface CampaignWithCounts {
   submissions: { count: number }[];
 }
 
-function CampaignCard({ campaign, showHideButton = true }: { campaign: CampaignWithCounts; showHideButton?: boolean }) {
+function CampaignCard({ campaign, showHideButton = true, showDeleteButton = false }: { campaign: CampaignWithCounts; showHideButton?: boolean; showDeleteButton?: boolean }) {
+  const submissionCount = campaign.submissions?.[0]?.count || 0;
+  
   return (
     <Card key={campaign.id}>
       <CardContent className="p-6">
@@ -55,7 +58,7 @@ function CampaignCard({ campaign, showHideButton = true }: { campaign: CampaignW
                 {campaign.campaign_clippers?.[0]?.count || 0} clippers
               </span>
               <span>
-                {campaign.submissions?.[0]?.count || 0} submissions
+                {submissionCount} submissions
               </span>
               <span>${campaign.rate_per_1k}/1K views</span>
             </div>
@@ -65,6 +68,13 @@ function CampaignCard({ campaign, showHideButton = true }: { campaign: CampaignW
               <HideCampaignButton 
                 campaignId={campaign.id} 
                 isHidden={campaign.status === 'hidden'} 
+              />
+            )}
+            {showDeleteButton && (
+              <DeleteCampaignButton 
+                campaignId={campaign.id} 
+                campaignName={campaign.name}
+                submissionCount={submissionCount}
               />
             )}
             <Link href={`/admin/campaigns/${campaign.id}`}>
@@ -166,7 +176,7 @@ export default async function CampaignsPage() {
           <div className="grid gap-4">
             {hiddenCampaigns.length > 0 ? (
               hiddenCampaigns.map((campaign) => (
-                <CampaignCard key={campaign.id} campaign={campaign} />
+                <CampaignCard key={campaign.id} campaign={campaign} showDeleteButton />
               ))
             ) : (
               <Card>
