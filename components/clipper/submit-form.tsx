@@ -2,7 +2,6 @@
 
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,31 +9,81 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { AlertCircle, CheckCircle, Send } from 'lucide-react';
-import { isValidTweetUrl, extractTweetId } from '@/lib/twitter';
+
+import { isValidSubmissionUrl, type SubmissionPlatform } from '@/lib/submission-platform';
+
+interface CampaignPlatformOption {
+  id: string;
+  platform: SubmissionPlatform;
+  is_enabled: boolean;
+  rate_per_1k: number;
+}
+
+interface CampaignOption {
+  id: string;
+  name: string;
+  description: string | null;
+  platforms: CampaignPlatformOption[];
+}
 
 interface SubmitClipFormProps {
-  campaigns: { id: string; name: string; description: string | null }[];
-  submittedCampaignIds: string[];
-  userId: string;
+  campaigns: CampaignOption[];
+  submittedCampaignPlatformIds: string[];
   preselectedCampaign?: string | null;
 }
 
-function SubmitClipFormInner({ campaigns, submittedCampaignIds, userId, preselectedCampaign }: SubmitClipFormProps) {
+const PLATFORM_LABELS: Record<SubmissionPlatform, string> = {
+  x: 'X',
+  youtube: 'YouTube',
+  tiktok: 'TikTok',
+};
+
+function SubmitClipFormInner({ campaigns, submittedCampaignPlatformIds, preselectedCampaign }: SubmitClipFormProps) {
   const router = useRouter();
 
-  const [campaignId, setCampaignId] = useState(preselectedCampaign || '');
-  const [tweetUrl, setTweetUrl] = useState('');
+  const [campaignId, setCampaignId] = useState(preselectedCampaign || campaigns[0]?.id || '');
+  const [campaignPlatformId, setCampaignPlatformId] = useState('');
+  const [submissionUrl, setSubmissionUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [urlValid, setUrlValid] = useState<boolean | null>(null);
 
-  const availableCampaigns = campaigns.filter(
-    (c) => !submittedCampaignIds.includes(c.id)
+  const selectedCampaign = campaigns.find((campaign) => campaign.id === campaignId);
+
+  const availablePlatforms = (selectedCampaign?.platforms || []).filter(
+    (platform) => !submittedCampaignPlatformIds.includes(platform.id)
   );
 
+  const selectedPlatform = availablePlatforms.find((platform) => platform.id === campaignPlatformId);
+
+  const availableCampaigns = campaigns.filter((campaign) => {
+    const hasAvailablePlatform = campaign.platforms.some(
+      (platform) => !submittedCampaignPlatformIds.includes(platform.id)
+    );
+    return hasAvailablePlatform;
+  });
+
+  const handleCampaignChange = (value: string) => {
+    setCampaignId(value);
+    setCampaignPlatformId('');
+    setSubmissionUrl('');
+    setUrlValid(null);
+  };
+
+  const handlePlatformChange = (value: string) => {
+    setCampaignPlatformId(value);
+    setSubmissionUrl('');
+    setUrlValid(null);
+  };
+
   const handleUrlChange = (url: string) => {
-    setTweetUrl(url);
+    setSubmissionUrl(url);
     if (url.length > 0) {
-      setUrlValid(isValidTweetUrl(url));
+      if (!selectedPlatform) {
+        setUrlValid(false);
+        return;
+      }
+
+      setUrlValid(isValidSubmissionUrl(selectedPlatform.platform, url));
     } else {
       setUrlValid(null);
     }
@@ -48,14 +97,13 @@ function SubmitClipFormInner({ campaigns, submittedCampaignIds, userId, preselec
       return;
     }
 
-    if (!isValidTweetUrl(tweetUrl)) {
-      toast.error('Please enter a valid X (Twitter) URL');
+    if (!campaignPlatformId || !selectedPlatform) {
+      toast.error('Please select a platform');
       return;
     }
 
-    const tweetId = extractTweetId(tweetUrl);
-    if (!tweetId) {
-      toast.error('Could not extract tweet ID from URL');
+    if (!isValidSubmissionUrl(selectedPlatform.platform, submissionUrl)) {
+      toast.error(`Please enter a valid ${PLATFORM_LABELS[selectedPlatform.platform]} URL`);
       return;
     }
 
@@ -65,7 +113,11 @@ function SubmitClipFormInner({ campaigns, submittedCampaignIds, userId, preselec
       const response = await fetch('/api/submissions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ campaignId, tweetUrl }),
+        body: JSON.stringify({
+          campaignId,
+          campaignPlatformId,
+          url: submissionUrl,
+        }),
       });
 
       const data = await response.json();
@@ -93,7 +145,7 @@ function SubmitClipFormInner({ campaigns, submittedCampaignIds, userId, preselec
           <p className="text-gray-600">
             {campaigns.length === 0
               ? "You're not assigned to any active campaigns."
-              : "You've already submitted clips for all available campaigns today. Check back tomorrow!"}
+              : "You've already submitted clips for all available campaign platforms today. Check back tomorrow!"}
           </p>
         </CardContent>
       </Card>
@@ -105,14 +157,14 @@ function SubmitClipFormInner({ campaigns, submittedCampaignIds, userId, preselec
       <CardHeader>
         <CardTitle>Submit Your Clip</CardTitle>
         <CardDescription>
-          Submit the URL of your X (Twitter) post. You can submit 1 clip per campaign per day.
+          Submit per campaign platform (X / YouTube / TikTok). You can submit 1 clip per platform per campaign per day.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="campaign">Campaign</Label>
-            <Select value={campaignId} onValueChange={setCampaignId}>
+            <Select value={campaignId} onValueChange={handleCampaignChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a campaign" />
               </SelectTrigger>
@@ -127,13 +179,40 @@ function SubmitClipFormInner({ campaigns, submittedCampaignIds, userId, preselec
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="tweetUrl">X (Twitter) Post URL</Label>
+            <Label htmlFor="platform">Platform</Label>
+            <Select value={campaignPlatformId} onValueChange={handlePlatformChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a platform" />
+              </SelectTrigger>
+              <SelectContent>
+                {availablePlatforms.map((platform) => (
+                  <SelectItem key={platform.id} value={platform.id}>
+                    {PLATFORM_LABELS[platform.platform]} • {`$${platform.rate_per_1k}/1K`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedCampaign && availablePlatforms.length === 0 && (
+              <p className="text-sm text-yellow-600">You have already submitted for all platforms of this campaign today.</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="submissionUrl">
+              {selectedPlatform ? `${PLATFORM_LABELS[selectedPlatform.platform]} URL` : 'Submission URL'}
+            </Label>
             <div className="relative">
               <Input
-                id="tweetUrl"
+                id="submissionUrl"
                 type="url"
-                placeholder="https://x.com/username/status/1234567890"
-                value={tweetUrl}
+                placeholder={
+                  selectedPlatform?.platform === 'youtube'
+                    ? 'https://youtube.com/watch?v=...'
+                    : selectedPlatform?.platform === 'tiktok'
+                    ? 'https://www.tiktok.com/@user/video/...'
+                    : 'https://x.com/username/status/...'
+                }
+                value={submissionUrl}
                 onChange={(e) => handleUrlChange(e.target.value)}
                 className={urlValid === false ? 'border-red-500' : urlValid === true ? 'border-green-500' : ''}
                 required
@@ -149,11 +228,11 @@ function SubmitClipFormInner({ campaigns, submittedCampaignIds, userId, preselec
               )}
             </div>
             <p className="text-sm text-gray-500">
-              Enter the full URL of your clip post on X (Twitter)
+              Enter the full URL for your selected platform
             </p>
           </div>
 
-          <Button type="submit" className="w-full" disabled={loading || !urlValid}>
+          <Button type="submit" className="w-full" disabled={loading || !urlValid || !campaignPlatformId}>
             <Send className="h-4 w-4 mr-2" />
             {loading ? 'Submitting...' : 'Submit Clip'}
           </Button>

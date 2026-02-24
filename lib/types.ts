@@ -3,6 +3,7 @@ export type UserStatus = 'pending' | 'approved' | 'rejected';
 export type CampaignStatus = 'draft' | 'active' | 'completed' | 'hidden';
 export type SubmissionStatus = 'pending' | 'approved' | 'rejected';
 export type PayoutStatus = 'pending' | 'processed' | 'paid';
+export type SubmissionPlatform = 'x' | 'youtube' | 'tiktok';
 
 export interface Profile {
   id: string;
@@ -16,6 +17,7 @@ export interface Profile {
 
 export interface Campaign {
   id: string;
+  legacy_campaign_id?: string | null;
   name: string;
   description: string | null;
   start_date: string;
@@ -29,6 +31,7 @@ export interface Campaign {
   created_at: string;
   updated_at: string;
   creator?: { full_name: string | null; email: string } | null;
+  activePlatforms?: SubmissionPlatform[];
 }
 
 export interface CampaignClipper {
@@ -44,11 +47,16 @@ export interface Submission {
   id: string;
   campaign_id: string;
   clipper_id: string;
-  tweet_url: string;
-  tweet_id: string;
+  campaign_platform_id?: string | null;
+  platform?: SubmissionPlatform;
+  url?: string;
+  external_id?: string;
+  tweet_url?: string;
+  tweet_id?: string;
   views: number;
   status: SubmissionStatus;
   submitted_at: string;
+  submitted_day?: string;
   approved_at: string | null;
   last_view_update: string | null;
   created_at: string;

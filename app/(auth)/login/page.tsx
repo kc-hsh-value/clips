@@ -103,7 +103,7 @@ function LoginForm() {
           {googleLoading ? 'Signing in...' : 'Continue with Google'}
         </Button>
 
-        {/* Email login temporarily disabled due to rate limits
+        {/* Email login temporarily disabled due to rate limits */}
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
             <Separator className="w-full" />
@@ -139,7 +139,7 @@ function LoginForm() {
             {loading ? 'Signing in...' : 'Sign in'}
           </Button>
         </form>
-        */}
+       
       </CardContent>
       <CardFooter>
         <p className="text-sm text-center text-gray-600 w-full">

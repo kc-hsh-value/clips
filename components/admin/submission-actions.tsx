@@ -21,7 +21,7 @@ export function SubmissionActions({ submissionId, status }: SubmissionActionsPro
     const supabase = createClient();
 
     const { error } = await supabase
-      .from('submissions')
+      .from('submissions_v2')
       .update({ 
         status: newStatus,
         approved_at: newStatus === 'approved' ? new Date().toISOString() : null

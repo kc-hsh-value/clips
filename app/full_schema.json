@@ -1,0 +1,522 @@
+[
+  {
+    "table_schema": "public",
+    "table_name": "campaign_clippers",
+    "ordinal_position": 1,
+    "column_name": "id",
+    "data_type": "uuid",
+    "length": "",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "campaign_clippers",
+    "ordinal_position": 2,
+    "column_name": "campaign_id",
+    "data_type": "uuid",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_schema": "public",
+    "table_name": "campaign_clippers",
+    "ordinal_position": 3,
+    "column_name": "clipper_id",
+    "data_type": "uuid",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_schema": "public",
+    "table_name": "campaign_clippers",
+    "ordinal_position": 4,
+    "column_name": "joined_at",
+    "data_type": "timestamp with time zone",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "campaigns",
+    "ordinal_position": 1,
+    "column_name": "id",
+    "data_type": "uuid",
+    "length": "",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "campaigns",
+    "ordinal_position": 2,
+    "column_name": "name",
+    "data_type": "text",
+    "length": "",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_schema": "public",
+    "table_name": "campaigns",
+    "ordinal_position": 3,
+    "column_name": "description",
+    "data_type": "text",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_schema": "public",
+    "table_name": "campaigns",
+    "ordinal_position": 4,
+    "column_name": "start_date",
+    "data_type": "date",
+    "length": "",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_schema": "public",
+    "table_name": "campaigns",
+    "ordinal_position": 5,
+    "column_name": "end_date",
+    "data_type": "date",
+    "length": "",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_schema": "public",
+    "table_name": "campaigns",
+    "ordinal_position": 6,
+    "column_name": "rate_per_1k",
+    "data_type": "numeric",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": "4.00"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "campaigns",
+    "ordinal_position": 7,
+    "column_name": "multiplier_100k",
+    "data_type": "numeric",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": "1.25"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "campaigns",
+    "ordinal_position": 8,
+    "column_name": "multiplier_250k",
+    "data_type": "numeric",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": "1.50"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "campaigns",
+    "ordinal_position": 9,
+    "column_name": "status",
+    "data_type": "text",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": "'active'::text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "campaigns",
+    "ordinal_position": 10,
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "campaigns",
+    "ordinal_position": 11,
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "campaigns",
+    "ordinal_position": 12,
+    "column_name": "max_payout_per_video",
+    "data_type": "numeric",
+    "length": "10",
+    "is_nullable": "YES",
+    "column_default": "NULL::numeric"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "campaigns",
+    "ordinal_position": 13,
+    "column_name": "created_by",
+    "data_type": "uuid",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_schema": "public",
+    "table_name": "notifications",
+    "ordinal_position": 1,
+    "column_name": "id",
+    "data_type": "uuid",
+    "length": "",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "notifications",
+    "ordinal_position": 2,
+    "column_name": "user_id",
+    "data_type": "uuid",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_schema": "public",
+    "table_name": "notifications",
+    "ordinal_position": 3,
+    "column_name": "type",
+    "data_type": "text",
+    "length": "",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_schema": "public",
+    "table_name": "notifications",
+    "ordinal_position": 4,
+    "column_name": "title",
+    "data_type": "text",
+    "length": "",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_schema": "public",
+    "table_name": "notifications",
+    "ordinal_position": 5,
+    "column_name": "message",
+    "data_type": "text",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_schema": "public",
+    "table_name": "notifications",
+    "ordinal_position": 6,
+    "column_name": "read",
+    "data_type": "boolean",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": "false"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "notifications",
+    "ordinal_position": 7,
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "payouts",
+    "ordinal_position": 1,
+    "column_name": "id",
+    "data_type": "uuid",
+    "length": "",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "payouts",
+    "ordinal_position": 2,
+    "column_name": "campaign_id",
+    "data_type": "uuid",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_schema": "public",
+    "table_name": "payouts",
+    "ordinal_position": 3,
+    "column_name": "clipper_id",
+    "data_type": "uuid",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_schema": "public",
+    "table_name": "payouts",
+    "ordinal_position": 4,
+    "column_name": "total_views",
+    "data_type": "integer",
+    "length": "32",
+    "is_nullable": "YES",
+    "column_default": "0"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "payouts",
+    "ordinal_position": 5,
+    "column_name": "base_amount",
+    "data_type": "numeric",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": "0"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "payouts",
+    "ordinal_position": 6,
+    "column_name": "multiplier",
+    "data_type": "numeric",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": "1.0"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "payouts",
+    "ordinal_position": 7,
+    "column_name": "final_amount",
+    "data_type": "numeric",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": "0"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "payouts",
+    "ordinal_position": 8,
+    "column_name": "status",
+    "data_type": "text",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": "'pending'::text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "payouts",
+    "ordinal_position": 9,
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "payouts",
+    "ordinal_position": 10,
+    "column_name": "processed_at",
+    "data_type": "timestamp with time zone",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_schema": "public",
+    "table_name": "profiles",
+    "ordinal_position": 1,
+    "column_name": "id",
+    "data_type": "uuid",
+    "length": "",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_schema": "public",
+    "table_name": "profiles",
+    "ordinal_position": 2,
+    "column_name": "email",
+    "data_type": "text",
+    "length": "",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_schema": "public",
+    "table_name": "profiles",
+    "ordinal_position": 3,
+    "column_name": "full_name",
+    "data_type": "text",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_schema": "public",
+    "table_name": "profiles",
+    "ordinal_position": 4,
+    "column_name": "role",
+    "data_type": "text",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": "'clipper'::text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "profiles",
+    "ordinal_position": 5,
+    "column_name": "status",
+    "data_type": "text",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": "'pending'::text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "profiles",
+    "ordinal_position": 6,
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "profiles",
+    "ordinal_position": 7,
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "submissions",
+    "ordinal_position": 1,
+    "column_name": "id",
+    "data_type": "uuid",
+    "length": "",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "submissions",
+    "ordinal_position": 2,
+    "column_name": "campaign_id",
+    "data_type": "uuid",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_schema": "public",
+    "table_name": "submissions",
+    "ordinal_position": 3,
+    "column_name": "clipper_id",
+    "data_type": "uuid",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_schema": "public",
+    "table_name": "submissions",
+    "ordinal_position": 4,
+    "column_name": "tweet_url",
+    "data_type": "text",
+    "length": "",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_schema": "public",
+    "table_name": "submissions",
+    "ordinal_position": 5,
+    "column_name": "tweet_id",
+    "data_type": "text",
+    "length": "",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_schema": "public",
+    "table_name": "submissions",
+    "ordinal_position": 6,
+    "column_name": "views",
+    "data_type": "integer",
+    "length": "32",
+    "is_nullable": "YES",
+    "column_default": "0"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "submissions",
+    "ordinal_position": 7,
+    "column_name": "status",
+    "data_type": "text",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": "'pending'::text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "submissions",
+    "ordinal_position": 8,
+    "column_name": "submitted_at",
+    "data_type": "timestamp with time zone",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "submissions",
+    "ordinal_position": 9,
+    "column_name": "approved_at",
+    "data_type": "timestamp with time zone",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_schema": "public",
+    "table_name": "submissions",
+    "ordinal_position": 10,
+    "column_name": "last_view_update",
+    "data_type": "timestamp with time zone",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_schema": "public",
+    "table_name": "submissions",
+    "ordinal_position": 11,
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "length": "",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  }
+]

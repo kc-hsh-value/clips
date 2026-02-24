@@ -27,17 +27,17 @@ export function CampaignClippersManager({ campaignId }: CampaignClippersManagerP
     
     // Get clippers in this campaign
     const { data: campaignClippers } = await supabase
-      .from('campaign_clippers')
+      .from('campaign_clippers_v2')
       .select(`
         joined_at,
-        profile:profiles(*)
+        clipper:profiles(*)
       `)
       .eq('campaign_id', campaignId);
 
     if (campaignClippers) {
       setClippers(
         campaignClippers.map((cc) => ({
-          ...(cc.profile as unknown as Profile),
+          ...(cc.clipper as unknown as Profile),
           joined_at: cc.joined_at,
         }))
       );
@@ -51,7 +51,7 @@ export function CampaignClippersManager({ campaignId }: CampaignClippersManagerP
       .eq('status', 'approved');
 
     if (allClippers && campaignClippers) {
-      const assignedIds = campaignClippers.map((cc) => (cc.profile as unknown as Profile).id);
+      const assignedIds = campaignClippers.map((cc) => (cc.clipper as unknown as Profile).id);
       setAvailableClippers(allClippers.filter((c) => !assignedIds.includes(c.id)));
     }
   };
@@ -60,7 +60,7 @@ export function CampaignClippersManager({ campaignId }: CampaignClippersManagerP
     setLoading(true);
     const supabase = createClient();
     
-    const { error } = await supabase.from('campaign_clippers').insert({
+    const { error } = await supabase.from('campaign_clippers_v2').insert({
       campaign_id: campaignId,
       clipper_id: clipperId,
     });
@@ -79,7 +79,7 @@ export function CampaignClippersManager({ campaignId }: CampaignClippersManagerP
     const supabase = createClient();
     
     const { error } = await supabase
-      .from('campaign_clippers')
+      .from('campaign_clippers_v2')
       .delete()
       .eq('campaign_id', campaignId)
       .eq('clipper_id', clipperId);

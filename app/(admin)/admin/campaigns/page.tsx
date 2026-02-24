@@ -19,6 +19,7 @@ interface CampaignWithCounts {
   status: string;
   campaign_clippers: { count: number }[];
   submissions: { count: number }[];
+  activePlatforms: string[];
 }
 
 function CampaignCard({ campaign, showHideButton = true, showDeleteButton = false }: { campaign: CampaignWithCounts; showHideButton?: boolean; showDeleteButton?: boolean }) {
@@ -47,6 +48,15 @@ function CampaignCard({ campaign, showHideButton = true, showDeleteButton = fals
             </div>
             {campaign.description && (
               <p className="text-gray-600 mt-1">{campaign.description}</p>
+            )}
+            {campaign.activePlatforms.length > 0 && (
+              <div className="flex items-center gap-2 mt-2">
+                {campaign.activePlatforms.map((platform) => (
+                  <Badge key={platform} variant="outline" className="uppercase text-xs">
+                    {platform}
+                  </Badge>
+                ))}
+              </div>
             )}
             <div className="flex items-center gap-6 mt-3 text-sm text-gray-500">
               <span className="flex items-center gap-1">
@@ -99,10 +109,53 @@ export default async function CampaignsPage() {
     `)
     .order('created_at', { ascending: false });
 
-  const activeCampaigns = campaigns?.filter((c) => c.status === 'active') || [];
-  const completedCampaigns = campaigns?.filter((c) => c.status === 'completed') || [];
-  const hiddenCampaigns = campaigns?.filter((c) => c.status === 'hidden') || [];
-  const draftCampaigns = campaigns?.filter((c) => c.status === 'draft') || [];
+  const campaignIds = campaigns?.map((campaign) => campaign.id) || [];
+
+  const { data: campaignMappings } = campaignIds.length
+    ? await supabase
+        .from('campaigns_v2')
+        .select('id, legacy_campaign_id')
+        .in('legacy_campaign_id', campaignIds)
+    : { data: [] as { id: string; legacy_campaign_id: string }[] };
+
+  const v2CampaignIds = campaignMappings?.map((mapping) => mapping.id) || [];
+
+  const { data: platformRows } = v2CampaignIds.length
+    ? await supabase
+        .from('campaign_platforms_v2')
+        .select('campaign_id, platform, is_enabled')
+        .in('campaign_id', v2CampaignIds)
+    : { data: [] as { campaign_id: string; platform: string; is_enabled: boolean }[] };
+
+  const legacyByV2Id = new Map(
+    (campaignMappings || []).map((mapping) => [mapping.id, mapping.legacy_campaign_id])
+  );
+
+  const platformMapByLegacyCampaign = (platformRows || []).reduce<Record<string, string[]>>((acc, row) => {
+    if (!row.is_enabled) return acc;
+    const legacyCampaignId = legacyByV2Id.get(row.campaign_id);
+    if (!legacyCampaignId) return acc;
+
+    if (!acc[legacyCampaignId]) {
+      acc[legacyCampaignId] = [];
+    }
+
+    if (!acc[legacyCampaignId].includes(row.platform)) {
+      acc[legacyCampaignId].push(row.platform);
+    }
+
+    return acc;
+  }, {});
+
+  const campaignsWithPlatforms: CampaignWithCounts[] = (campaigns || []).map((campaign) => ({
+    ...campaign,
+    activePlatforms: platformMapByLegacyCampaign[campaign.id] || [],
+  }));
+
+  const activeCampaigns = campaignsWithPlatforms.filter((c) => c.status === 'active');
+  const completedCampaigns = campaignsWithPlatforms.filter((c) => c.status === 'completed');
+  const hiddenCampaigns = campaignsWithPlatforms.filter((c) => c.status === 'hidden');
+  const draftCampaigns = campaignsWithPlatforms.filter((c) => c.status === 'draft');
 
   return (
     <div className="space-y-6">

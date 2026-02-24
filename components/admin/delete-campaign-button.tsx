@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { Trash2 } from 'lucide-react';
 import {
@@ -29,7 +30,10 @@ export function DeleteCampaignButton({
 }: DeleteCampaignButtonProps) {
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  const [confirmationName, setConfirmationName] = useState('');
   const router = useRouter();
+
+  const isConfirmationValid = confirmationName.trim() === campaignName;
 
   const deleteCampaign = async () => {
     setLoading(true);
@@ -44,14 +48,22 @@ export function DeleteCampaignButton({
       toast.error(error.message);
     } else {
       toast.success('Campaign deleted successfully');
+      setConfirmationName('');
       setOpen(false);
       router.refresh();
     }
     setLoading(false);
   };
 
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (!nextOpen) {
+      setConfirmationName('');
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700 hover:bg-red-50">
           <Trash2 className="h-4 w-4 mr-1" />
@@ -62,7 +74,7 @@ export function DeleteCampaignButton({
         <DialogHeader>
           <DialogTitle>Delete Campaign</DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete <strong>{campaignName}</strong>?
+            To confirm deletion, type <strong>{campaignName}</strong> below.
             {submissionCount > 0 && (
               <>
                 <br /><br />
@@ -75,6 +87,17 @@ export function DeleteCampaignButton({
             This action cannot be undone.
           </DialogDescription>
         </DialogHeader>
+        <div className="space-y-2">
+          <p className="text-sm text-gray-600">
+            Campaign name
+          </p>
+          <Input
+            value={confirmationName}
+            onChange={(e) => setConfirmationName(e.target.value)}
+            placeholder={campaignName}
+            autoComplete="off"
+          />
+        </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
@@ -82,7 +105,7 @@ export function DeleteCampaignButton({
           <Button 
             variant="destructive" 
             onClick={deleteCampaign} 
-            disabled={loading}
+            disabled={loading || !isConfirmationValid}
           >
             {loading ? 'Deleting...' : 'Delete Campaign'}
           </Button>

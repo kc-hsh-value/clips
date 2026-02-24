@@ -12,6 +12,28 @@ import { formatViews, formatCurrency } from '@/lib/payout';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
+function getPlatformValue(
+  relation:
+    | { platform?: string | null }
+    | Array<{ platform?: string | null }>
+    | null
+    | undefined
+) {
+  if (Array.isArray(relation)) return relation[0]?.platform || undefined;
+  return relation?.platform || undefined;
+}
+
+function getCampaignName(
+  relation:
+    | { name?: string | null }
+    | Array<{ name?: string | null }>
+    | null
+    | undefined
+) {
+  if (Array.isArray(relation)) return relation[0]?.name || undefined;
+  return relation?.name || undefined;
+}
+
 export default async function AdminDashboard() {
   const supabase = await createClient();
 
@@ -30,22 +52,36 @@ export default async function AdminDashboard() {
     supabase.from('campaigns').select('*', { count: 'exact', head: true }).eq('status', 'active'),
     supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'clipper'),
     supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'clipper').eq('status', 'pending'),
-    supabase.from('submissions').select('*', { count: 'exact', head: true }),
-    supabase.from('submissions').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-    supabase.from('submissions').select('views').eq('status', 'approved'),
+    supabase.from('submissions_v2').select('*', { count: 'exact', head: true }),
+    supabase.from('submissions_v2').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+    supabase
+      .from('submissions_v2')
+      .select('views, campaign_platform:campaign_platforms_v2!submissions_v2_campaign_platform_id_fkey(platform)')
+      .eq('status', 'approved'),
     supabase.from('payouts').select('final_amount'),
   ]);
 
   const totalViews = viewsData?.reduce((acc, s) => acc + (s.views || 0), 0) || 0;
+  const platformViews = (viewsData || []).reduce(
+    (acc, s) => {
+      const platform = getPlatformValue(s.campaign_platform);
+      if (platform === 'x') acc.x += s.views || 0;
+      if (platform === 'youtube') acc.youtube += s.views || 0;
+      if (platform === 'tiktok') acc.tiktok += s.views || 0;
+      return acc;
+    },
+    { x: 0, youtube: 0, tiktok: 0 }
+  );
   const totalPayouts = payoutsData?.reduce((acc, p) => acc + (p.final_amount || 0), 0) || 0;
 
   // Recent submissions
   const { data: recentSubmissions } = await supabase
-    .from('submissions')
+    .from('submissions_v2')
     .select(`
       *,
       profile:profiles(full_name, email),
-      campaign:campaigns(name)
+      campaign:campaigns_v2!submissions_v2_campaign_id_fkey(name),
+      campaign_platform:campaign_platforms_v2!submissions_v2_campaign_platform_id_fkey(platform)
     `)
     .order('created_at', { ascending: false })
     .limit(5);
@@ -82,6 +118,7 @@ export default async function AdminDashboard() {
       icon: Eye,
       color: 'text-orange-600',
       bgColor: 'bg-orange-100',
+      breakdown: `X ${formatViews(platformViews.x)} • YT ${formatViews(platformViews.youtube)} • TT ${formatViews(platformViews.tiktok)}`,
     },
     {
       title: 'Total Payouts',
@@ -121,6 +158,9 @@ export default async function AdminDashboard() {
                   {stat.pending !== undefined && stat.pending > 0 && (
                     <p className="text-sm text-yellow-600">{stat.pending} pending</p>
                   )}
+                  {'breakdown' in stat && stat.breakdown && (
+                    <p className="text-xs text-gray-500 mt-1">{stat.breakdown}</p>
+                  )}
                 </div>
                 <div className={`p-3 rounded-full ${stat.bgColor}`}>
                   <stat.icon className={`h-6 w-6 ${stat.color}`} />
@@ -143,6 +183,11 @@ export default async function AdminDashboard() {
           {recentSubmissions && recentSubmissions.length > 0 ? (
             <div className="space-y-4">
               {recentSubmissions.map((submission) => (
+                (() => {
+                  const platform = getPlatformValue(submission.campaign_platform);
+                  const campaignName = getCampaignName(submission.campaign);
+
+                  return (
                 <div
                   key={submission.id}
                   className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
@@ -152,7 +197,7 @@ export default async function AdminDashboard() {
                       {submission.profile?.full_name || submission.profile?.email}
                     </p>
                     <p className="text-sm text-gray-600">
-                      {submission.campaign?.name}
+                      {campaignName} • {platform?.toUpperCase()}
                     </p>
                   </div>
                   <div className="text-right">
@@ -172,6 +217,8 @@ export default async function AdminDashboard() {
                     </span>
                   </div>
                 </div>
+                  );
+                })()
               ))}
             </div>
           ) : (

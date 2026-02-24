@@ -13,6 +13,27 @@ import { RefreshViewsButton } from '@/components/admin/refresh-views-button';
 import { ClipperLeaderboard } from '@/components/admin/clipper-leaderboard';
 import { EndCampaignButton } from '@/components/admin/end-campaign-button';
 
+interface PlatformConfig {
+  id: string;
+  platform: 'x' | 'youtube' | 'tiktok';
+  rate_per_1k: number;
+  multiplier_100k: number;
+  multiplier_250k: number;
+  max_payout_per_video: number | null;
+  is_enabled: boolean;
+}
+
+function getPlatformValue(
+  relation:
+    | { platform?: string | null }
+    | Array<{ platform?: string | null }>
+    | null
+    | undefined
+) {
+  if (Array.isArray(relation)) return relation[0]?.platform || undefined;
+  return relation?.platform || undefined;
+}
+
 interface CampaignPageProps {
   params: Promise<{ id: string }>;
 }
@@ -31,6 +52,24 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
     notFound();
   }
 
+  const { data: campaignV2 } = await supabase
+    .from('campaigns_v2')
+    .select('*')
+    .eq('legacy_campaign_id', id)
+    .single();
+
+  const activePlatformConfigs: PlatformConfig[] = campaignV2
+    ? (
+        (
+          await supabase
+            .from('campaign_platforms_v2')
+            .select('*')
+            .eq('campaign_id', campaignV2.id)
+            .eq('is_enabled', true)
+        ).data || []
+      )
+    : [];
+
   // Fetch creator info separately (created_by might not exist yet)
   let creator: { full_name: string | null; email: string } | null = null;
   if (campaign.created_by) {
@@ -43,18 +82,32 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
   }
 
   // Get campaign stats
-  const { data: submissions } = await supabase
-    .from('submissions')
-    .select('views, status')
-    .eq('campaign_id', id);
+  const { data: submissions } = campaignV2
+    ? await supabase
+        .from('submissions_v2')
+        .select('views, status, campaign_platform:campaign_platforms_v2!submissions_v2_campaign_platform_id_fkey(platform)')
+        .eq('campaign_id', campaignV2.id)
+    : { data: [] as { views: number; status: string; campaign_platform?: { platform?: string } | { platform?: string }[] }[] };
 
-  const { count: clipperCount } = await supabase
-    .from('campaign_clippers')
-    .select('*', { count: 'exact', head: true })
-    .eq('campaign_id', id);
+  const { count: clipperCount } = campaignV2
+    ? await supabase
+        .from('campaign_clippers_v2')
+        .select('*', { count: 'exact', head: true })
+        .eq('campaign_id', campaignV2.id)
+    : { count: 0 };
 
   const totalViews = submissions?.reduce((acc, s) => acc + (s.views || 0), 0) || 0;
   const approvedSubmissions = submissions?.filter((s) => s.status === 'approved').length || 0;
+  const platformViews = (submissions || []).reduce(
+    (acc, submission) => {
+      const platform = getPlatformValue(submission.campaign_platform);
+      if (platform === 'x') acc.x += submission.views || 0;
+      if (platform === 'youtube') acc.youtube += submission.views || 0;
+      if (platform === 'tiktok') acc.tiktok += submission.views || 0;
+      return acc;
+    },
+    { x: 0, youtube: 0, tiktok: 0 }
+  );
 
   return (
     <div className="space-y-6">
@@ -91,6 +144,11 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
         {campaign.status === 'active' && (
           <EndCampaignButton campaignId={campaign.id} campaignName={campaign.name} />
         )}
+        {/* <DeleteCampaignButton
+          campaignId={campaign.id}
+          campaignName={campaign.name}
+          submissionCount={submissions?.length || 0}
+        /> */}
       </div>
 
       {/* Campaign Stats */}
@@ -127,6 +185,9 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
               <div>
                 <p className="text-sm text-gray-600">Total Views</p>
                 <p className="font-medium">{formatViews(totalViews)}</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  X {formatViews(platformViews.x)} • YT {formatViews(platformViews.youtube)} • TT {formatViews(platformViews.tiktok)}
+                </p>
               </div>
             </div>
             <div className="mt-2">
@@ -152,45 +213,62 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
           <CardTitle>Payment Settings</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-4 gap-6">
-            <div>
-              <p className="text-sm text-gray-600">Rate per 1K views</p>
-              <p className="text-lg font-semibold">{formatCurrency(campaign.rate_per_1k)}</p>
+          {activePlatformConfigs.length > 0 ? (
+            <div className="space-y-4">
+              {activePlatformConfigs.map((config) => (
+                <div key={config.id} className="rounded-lg border p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="font-semibold uppercase">{config.platform}</p>
+                    <Badge variant="outline">Enabled</Badge>
+                  </div>
+                  <div className="grid grid-cols-4 gap-6">
+                    <div>
+                      <p className="text-sm text-gray-600">Rate per 1K views</p>
+                      <p className="text-lg font-semibold">{formatCurrency(config.rate_per_1k)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">100K+ Multiplier</p>
+                      <p className="text-lg font-semibold">{config.multiplier_100k}x</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">250K+ Multiplier</p>
+                      <p className="text-lg font-semibold">{config.multiplier_250k}x</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Max Payout Per Video</p>
+                      <p className="text-lg font-semibold">
+                        {config.max_payout_per_video
+                          ? formatCurrency(config.max_payout_per_video)
+                          : 'No cap'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
-            <div>
-              <p className="text-sm text-gray-600">100K+ Multiplier</p>
-              <p className="text-lg font-semibold">{campaign.multiplier_100k}x</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">250K+ Multiplier</p>
-              <p className="text-lg font-semibold">{campaign.multiplier_250k}x</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Max Payout Per Video</p>
-              <p className="text-lg font-semibold">
-                {campaign.max_payout_per_video 
-                  ? formatCurrency(campaign.max_payout_per_video)
-                  : 'No cap'}
-              </p>
-            </div>
-          </div>
+          ) : (
+            <p className="text-gray-500">No platform settings found</p>
+          )}
         </CardContent>
       </Card>
 
       {/* Clipper Leaderboard */}
       <ClipperLeaderboard 
-        campaignId={id}
-        ratePerK={campaign.rate_per_1k}
-        multiplier100k={campaign.multiplier_100k}
-        multiplier250k={campaign.multiplier_250k}
-        maxPayoutPerVideo={campaign.max_payout_per_video}
+        campaignId={campaignV2?.id || ''}
+        platformConfigs={activePlatformConfigs.map((config) => ({
+          platform: config.platform,
+          ratePerK: config.rate_per_1k,
+          multiplier100k: config.multiplier_100k,
+          multiplier250k: config.multiplier_250k,
+          maxPayoutPerVideo: config.max_payout_per_video,
+        }))}
       />
 
       {/* Clippers Management */}
-      <CampaignClippersManager campaignId={id} />
+      <CampaignClippersManager campaignId={campaignV2?.id || ''} />
 
       {/* Submissions */}
-      <CampaignSubmissions campaignId={id} />
+      <CampaignSubmissions campaignId={campaignV2?.id || ''} />
     </div>
   );
 }

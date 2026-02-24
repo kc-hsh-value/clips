@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatViews, formatCurrency, calculatePayout } from '@/lib/payout';
 import { Trophy, Medal, Award } from 'lucide-react';
 
@@ -16,58 +17,98 @@ interface ClipperStats {
   estimated_earnings: number;
 }
 
-interface ClipperLeaderboardProps {
-  campaignId: string;
+interface PlatformPayoutConfig {
+  platform: 'x' | 'youtube' | 'tiktok';
   ratePerK: number;
   multiplier100k: number;
   multiplier250k: number;
   maxPayoutPerVideo: number | null;
 }
 
-export function ClipperLeaderboard({ 
-  campaignId, 
-  ratePerK, 
-  multiplier100k, 
-  multiplier250k,
-  maxPayoutPerVideo 
-}: ClipperLeaderboardProps) {
-  const [leaderboard, setLeaderboard] = useState<ClipperStats[]>([]);
+interface ClipperLeaderboardProps {
+  campaignId: string;
+  platformConfigs: PlatformPayoutConfig[];
+}
+
+type PlatformLeaderboard = Record<string, ClipperStats[]>;
+const PLATFORM_ORDER: Array<'x' | 'youtube' | 'tiktok'> = ['x', 'youtube', 'tiktok'];
+
+const PLATFORM_LABELS: Record<'x' | 'youtube' | 'tiktok', string> = {
+  x: 'X',
+  youtube: 'YouTube',
+  tiktok: 'TikTok',
+};
+
+function getPlatformValue(
+  relation:
+    | { platform?: string | null }
+    | Array<{ platform?: string | null }>
+    | null
+    | undefined
+) {
+  if (Array.isArray(relation)) return relation[0]?.platform || undefined;
+  return relation?.platform || undefined;
+}
+
+export function ClipperLeaderboard({ campaignId, platformConfigs }: ClipperLeaderboardProps) {
+  const [leaderboardByPlatform, setLeaderboardByPlatform] = useState<PlatformLeaderboard>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchLeaderboard() {
       const supabase = createClient();
 
+      const configByPlatform = Object.fromEntries(
+        platformConfigs.map((config) => [config.platform, config])
+      ) as Record<string, PlatformPayoutConfig>;
+
       // Get all approved submissions for this campaign with clipper info
       const { data: submissions, error } = await supabase
-        .from('submissions')
+        .from('submissions_v2')
         .select(`
           views,
           clipper_id,
+          campaign_platform:campaign_platforms_v2!submissions_v2_campaign_platform_id_fkey(platform),
           clipper:profiles(id, full_name, email)
         `)
         .eq('campaign_id', campaignId)
         .eq('status', 'approved');
 
-      console.log('Leaderboard query:', { submissions, error });
-
       if (!submissions || submissions.length === 0) {
+        setLeaderboardByPlatform({});
         setLoading(false);
         return;
       }
 
-      // Aggregate by clipper
-      const clipperMap = new Map<string, ClipperStats>();
+      // Aggregate by platform + clipper
+      const platformMap = new Map<string, Map<string, ClipperStats>>();
 
       for (const sub of submissions) {
         const clipper = sub.clipper as unknown as { id: string; full_name: string | null; email: string } | null;
+        const platform = getPlatformValue(sub.campaign_platform as { platform?: string } | { platform?: string }[]);
         if (!clipper) continue;
+        if (!platform) continue;
+
+        const platformConfig = configByPlatform[platform];
+        if (!platformConfig) continue;
+
+        if (!platformMap.has(platform)) {
+          platformMap.set(platform, new Map<string, ClipperStats>());
+        }
+
+        const clipperMap = platformMap.get(platform)!;
 
         const existing = clipperMap.get(clipper.id);
         const views = sub.views || 0;
         
         // Calculate earnings for this submission
-        const payout = calculatePayout(views, ratePerK, multiplier100k, multiplier250k, maxPayoutPerVideo);
+        const payout = calculatePayout(
+          views,
+          platformConfig.ratePerK,
+          platformConfig.multiplier100k,
+          platformConfig.multiplier250k,
+          platformConfig.maxPayoutPerVideo
+        );
         const earnings = payout.cappedAmount;
 
         if (existing) {
@@ -86,17 +127,19 @@ export function ClipperLeaderboard({
         }
       }
 
-      // Sort by total views descending
-      const sorted = Array.from(clipperMap.values()).sort(
-        (a, b) => b.total_views - a.total_views
-      );
+      const nextLeaderboardByPlatform: PlatformLeaderboard = {};
+      for (const [platform, clipperMap] of platformMap.entries()) {
+        nextLeaderboardByPlatform[platform] = Array.from(clipperMap.values()).sort(
+          (a, b) => b.total_views - a.total_views
+        );
+      }
 
-      setLeaderboard(sorted);
+      setLeaderboardByPlatform(nextLeaderboardByPlatform);
       setLoading(false);
     }
 
     fetchLeaderboard();
-  }, [campaignId, ratePerK, multiplier100k, multiplier250k, maxPayoutPerVideo]);
+  }, [campaignId, platformConfigs]);
 
   const getRankIcon = (index: number) => {
     if (index === 0) return <Trophy className="h-5 w-5 text-yellow-500" />;
@@ -118,18 +161,8 @@ export function ClipperLeaderboard({
     );
   }
 
-  if (leaderboard.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Clipper Leaderboard</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-gray-500">No approved submissions yet</p>
-        </CardContent>
-      </Card>
-    );
-  }
+  const enabledPlatformSet = new Set(platformConfigs.map((config) => config.platform));
+  const defaultPlatform = platformConfigs[0]?.platform || 'x';
 
   return (
     <Card>
@@ -140,40 +173,74 @@ export function ClipperLeaderboard({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-3">
-          {leaderboard.map((clipper, index) => (
-            <div
-              key={clipper.clipper_id}
-              className={`flex items-center justify-between p-3 rounded-lg ${
-                index === 0 ? 'bg-yellow-50 border border-yellow-200' :
-                index === 1 ? 'bg-gray-50 border border-gray-200' :
-                index === 2 ? 'bg-amber-50 border border-amber-200' :
-                'bg-white border border-gray-100'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                {getRankIcon(index)}
-                <div>
-                  <p className="font-medium">{clipper.clipper_name}</p>
-                  <p className="text-sm text-gray-500">{clipper.clipper_email}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="text-right">
-                  <p className="font-semibold">{formatViews(clipper.total_views)}</p>
-                  <p className="text-xs text-gray-500">views</p>
-                </div>
-                <div className="text-right">
-                  <Badge variant="outline">{clipper.submission_count} clips</Badge>
-                </div>
-                <div className="text-right min-w-[80px]">
-                  <p className="font-semibold text-green-600">{formatCurrency(clipper.estimated_earnings)}</p>
-                  <p className="text-xs text-gray-500">est. earnings</p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        <Tabs defaultValue={defaultPlatform} className="w-full">
+          <TabsList>
+            {PLATFORM_ORDER.map((platform) => (
+              <TabsTrigger key={platform} value={platform}>
+                {PLATFORM_LABELS[platform]}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
+          {PLATFORM_ORDER.map((platform) => {
+            const leaderboard = leaderboardByPlatform[platform] || [];
+            const isEnabled = enabledPlatformSet.has(platform);
+
+            return (
+              <TabsContent key={platform} value={platform} className="mt-4">
+                {!isEnabled ? (
+                  <p className="text-gray-500">{PLATFORM_LABELS[platform]} is not enabled for this campaign</p>
+                ) : leaderboard.length === 0 ? (
+                  <p className="text-gray-500">No approved submissions yet for {PLATFORM_LABELS[platform]}</p>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold uppercase text-sm tracking-wide text-gray-700">
+                        {PLATFORM_LABELS[platform]} leaderboard
+                      </h3>
+                      <Badge variant="outline" className="uppercase">
+                        {leaderboard.length} clippers
+                      </Badge>
+                    </div>
+
+                    {leaderboard.map((clipper, index) => (
+                      <div
+                        key={`${platform}-${clipper.clipper_id}`}
+                        className={`flex items-center justify-between p-3 rounded-lg ${
+                          index === 0 ? 'bg-yellow-50 border border-yellow-200' :
+                          index === 1 ? 'bg-gray-50 border border-gray-200' :
+                          index === 2 ? 'bg-amber-50 border border-amber-200' :
+                          'bg-white border border-gray-100'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          {getRankIcon(index)}
+                          <div>
+                            <p className="font-medium">{clipper.clipper_name}</p>
+                            <p className="text-sm text-gray-500">{clipper.clipper_email}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <p className="font-semibold">{formatViews(clipper.total_views)}</p>
+                            <p className="text-xs text-gray-500">views</p>
+                          </div>
+                          <div className="text-right">
+                            <Badge variant="outline">{clipper.submission_count} clips</Badge>
+                          </div>
+                          <div className="text-right min-w-[80px]">
+                            <p className="font-semibold text-green-600">{formatCurrency(clipper.estimated_earnings)}</p>
+                            <p className="text-xs text-gray-500">est. earnings</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+            );
+          })}
+        </Tabs>
       </CardContent>
     </Card>
   );

@@ -6,7 +6,44 @@ import Link from 'next/link';
 import { Eye, DollarSign, FileVideo, TrendingUp } from 'lucide-react';
 import { formatViews, formatCurrency, calculatePayout } from '@/lib/payout';
 import { format } from 'date-fns';
-import { Campaign } from '@/lib/types';
+
+type Platform = 'x' | 'youtube' | 'tiktok';
+
+interface CampaignPlatformConfig {
+  id: string;
+  platform: Platform;
+  rate_per_1k: number;
+  multiplier_100k: number;
+  multiplier_250k: number;
+  max_payout_per_video: number | null;
+  is_enabled: boolean;
+}
+
+interface CampaignV2 {
+  id: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+  status: string;
+  campaign_platforms: CampaignPlatformConfig[];
+}
+
+interface SubmissionV2 {
+  id: string;
+  campaign_id: string;
+  campaign_platform_id?: string;
+  views: number;
+  status: 'pending' | 'approved' | 'rejected';
+  submitted_day?: string;
+  submitted_at: string;
+  campaign?: { name?: string | null } | { name?: string | null }[];
+  campaign_platform?: CampaignPlatformConfig | CampaignPlatformConfig[];
+}
+
+function getSingle<T>(relation: T | T[] | null | undefined): T | undefined {
+  if (!relation) return undefined;
+  return Array.isArray(relation) ? relation[0] : relation;
+}
 
 export default async function ClipperDashboard() {
   const supabase = await createClient();
@@ -16,35 +53,76 @@ export default async function ClipperDashboard() {
 
   // Get clipper's campaigns
   const { data: campaignClippers } = await supabase
-    .from('campaign_clippers')
+    .from('campaign_clippers_v2')
     .select(`
-      campaign:campaigns(*)
+      campaign:campaigns_v2(
+        id,
+        name,
+        start_date,
+        end_date,
+        status,
+        campaign_platforms:campaign_platforms_v2(id, platform, rate_per_1k, multiplier_100k, multiplier_250k, max_payout_per_video, is_enabled)
+      )
     `)
     .eq('clipper_id', user.id);
 
-  const campaigns = (campaignClippers?.map((cc) => cc.campaign).filter(Boolean).flat() || []) as unknown as Campaign[];
+  const campaigns = (campaignClippers?.map((cc) => getSingle(cc.campaign)).filter(Boolean) || []) as CampaignV2[];
   const activeCampaigns = campaigns.filter((c) => c?.status === 'active');
 
   // Get clipper's submissions
   const { data: submissions } = await supabase
-    .from('submissions')
+    .from('submissions_v2')
     .select(`
-      *,
-      campaign:campaigns(name)
+      id,
+      campaign_id,
+      campaign_platform_id,
+      views,
+      status,
+      submitted_day,
+      submitted_at,
+      campaign:campaigns_v2!submissions_v2_campaign_id_fkey(name),
+      campaign_platform:campaign_platforms_v2!submissions_v2_campaign_platform_id_fkey(platform, rate_per_1k, multiplier_100k, multiplier_250k, max_payout_per_video, is_enabled)
     `)
     .eq('clipper_id', user.id)
     .order('created_at', { ascending: false });
 
-  // Get clipper's payouts
-  const { data: payouts } = await supabase
-    .from('payouts')
-    .select('*')
-    .eq('clipper_id', user.id);
+  const submissionRows = (submissions || []) as SubmissionV2[];
 
   // Calculate stats
-  const totalViews = submissions?.reduce((acc, s) => acc + (s.views || 0), 0) || 0;
-  const approvedSubmissions = submissions?.filter((s) => s.status === 'approved') || [];
-  const totalEarnings = payouts?.reduce((acc, p) => acc + (p.final_amount || 0), 0) || 0;
+  const totalViews = submissionRows.reduce((acc, s) => acc + (s.views || 0), 0);
+  const approvedSubmissions = submissionRows.filter((s) => s.status === 'approved');
+
+  const viewsByPlatform = submissionRows.reduce(
+    (acc, submission) => {
+      const config = getSingle(submission.campaign_platform);
+      const platform = config?.platform;
+      if (!platform) return acc;
+      acc[platform] += submission.views || 0;
+      return acc;
+    },
+    { x: 0, youtube: 0, tiktok: 0 }
+  );
+
+  const earningsByPlatform = approvedSubmissions.reduce(
+    (acc, submission) => {
+      const config = getSingle(submission.campaign_platform);
+      if (!config?.platform) return acc;
+
+      const payout = calculatePayout(
+        submission.views || 0,
+        config.rate_per_1k,
+        config.multiplier_100k,
+        config.multiplier_250k,
+        config.max_payout_per_video
+      );
+
+      acc[config.platform] += payout.cappedAmount;
+      return acc;
+    },
+    { x: 0, youtube: 0, tiktok: 0 }
+  );
+
+  const totalEarnings = earningsByPlatform.x + earningsByPlatform.youtube + earningsByPlatform.tiktok;
 
   const stats = [
     {
@@ -53,6 +131,7 @@ export default async function ClipperDashboard() {
       icon: Eye,
       color: 'text-blue-600',
       bgColor: 'bg-blue-100',
+      breakdown: `X ${formatViews(viewsByPlatform.x)} • YT ${formatViews(viewsByPlatform.youtube)} • TT ${formatViews(viewsByPlatform.tiktok)}`,
     },
     {
       title: 'Approved Clips',
@@ -67,6 +146,7 @@ export default async function ClipperDashboard() {
       icon: DollarSign,
       color: 'text-emerald-600',
       bgColor: 'bg-emerald-100',
+      breakdown: `X ${formatCurrency(earningsByPlatform.x)} • YT ${formatCurrency(earningsByPlatform.youtube)} • TT ${formatCurrency(earningsByPlatform.tiktok)}`,
     },
     {
       title: 'Active Campaigns',
@@ -93,6 +173,9 @@ export default async function ClipperDashboard() {
                 <div>
                   <p className="text-sm font-medium text-gray-600">{stat.title}</p>
                   <p className="text-2xl font-bold mt-1">{stat.value}</p>
+                  {'breakdown' in stat && stat.breakdown && (
+                    <p className="text-xs text-gray-500 mt-1">{stat.breakdown}</p>
+                  )}
                 </div>
                 <div className={`p-3 rounded-full ${stat.bgColor}`}>
                   <stat.icon className={`h-5 w-5 ${stat.color}`} />
@@ -117,11 +200,34 @@ export default async function ClipperDashboard() {
               {activeCampaigns.map((campaign) => {
                 // Count submissions for this campaign today
                 const today = new Date().toISOString().split('T')[0];
-                const todaySubmissions = submissions?.filter(
+                const todaySubmissions = submissionRows.filter(
                   (s) =>
                     s.campaign_id === campaign?.id &&
-                    s.submitted_at.split('T')[0] === today
-                ).length || 0;
+                    (s.submitted_day === today || s.submitted_at.split('T')[0] === today)
+                );
+
+                const activePlatforms = (campaign.campaign_platforms || [])
+                  .filter((platform) => platform.is_enabled)
+                  .map((platform) => platform.platform);
+
+                const activePlatformIds = (campaign.campaign_platforms || [])
+                  .filter((platform) => platform.is_enabled)
+                  .map((platform) => platform.id);
+
+                const submittedPlatformIdsToday = new Set(
+                  todaySubmissions
+                    .map((submission) => submission.campaign_platform_id)
+                    .filter(Boolean)
+                );
+
+                const submittedPlatformCount = activePlatformIds.filter((id) => submittedPlatformIdsToday.has(id)).length;
+                const allPlatformsSubmittedToday =
+                  activePlatformIds.length > 0 && submittedPlatformCount >= activePlatformIds.length;
+
+                const rateSummary = (campaign.campaign_platforms || [])
+                  .filter((platform) => platform.is_enabled)
+                  .map((platform) => `${platform.platform.toUpperCase()}: ${formatCurrency(platform.rate_per_1k)}/1K`)
+                  .join(' • ');
 
                 return (
                   <div
@@ -134,18 +240,26 @@ export default async function ClipperDashboard() {
                         {format(new Date(campaign?.start_date || ''), 'MMM d')} -{' '}
                         {format(new Date(campaign?.end_date || ''), 'MMM d, yyyy')}
                       </p>
-                      <p className="text-sm text-gray-500">
-                        ${campaign?.rate_per_1k}/1K views
-                      </p>
+                      {rateSummary && <p className="text-sm text-gray-500">{rateSummary}</p>}
+                      <div className="flex items-center gap-2 mt-2">
+                        {activePlatforms.map((platform) => (
+                          <Badge key={`${campaign.id}-${platform}`} variant="outline" className="uppercase text-xs">
+                            {platform}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
                     <div className="text-right">
-                      {todaySubmissions > 0 ? (
+                      {allPlatformsSubmittedToday ? (
                         <Badge variant="secondary">Submitted today</Badge>
                       ) : (
                         <Link href={`/dashboard/submit?campaign=${campaign?.id}`}>
                           <Button size="sm">Submit Clip</Button>
                         </Link>
                       )}
+                      <p className="text-xs text-gray-500 mt-2">
+                        {submittedPlatformCount}/{activePlatformIds.length} platforms submitted today
+                      </p>
                     </div>
                   </div>
                 );
@@ -165,35 +279,40 @@ export default async function ClipperDashboard() {
           <CardTitle>Recent Submissions</CardTitle>
         </CardHeader>
         <CardContent>
-          {submissions && submissions.length > 0 ? (
+          {submissionRows.length > 0 ? (
             <div className="space-y-4">
-              {submissions.slice(0, 5).map((submission) => (
-                <div
-                  key={submission.id}
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
-                >
-                  <div>
-                    <p className="font-medium">{submission.campaign?.name}</p>
-                    <p className="text-sm text-gray-500">
-                      {format(new Date(submission.submitted_at), 'MMM d, yyyy')}
-                    </p>
+              {submissionRows.slice(0, 5).map((submission) => {
+                const campaign = getSingle(submission.campaign);
+                const platform = getSingle(submission.campaign_platform)?.platform;
+
+                return (
+                  <div
+                    key={submission.id}
+                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+                  >
+                    <div>
+                      <p className="font-medium">{campaign?.name}</p>
+                      <p className="text-sm text-gray-500">
+                        {format(new Date(submission.submitted_at), 'MMM d, yyyy')} • {platform?.toUpperCase()}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium">{formatViews(submission.views)} views</p>
+                      <Badge
+                        variant={
+                          submission.status === 'approved'
+                            ? 'default'
+                            : submission.status === 'rejected'
+                            ? 'destructive'
+                            : 'secondary'
+                        }
+                      >
+                        {submission.status}
+                      </Badge>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-medium">{formatViews(submission.views)} views</p>
-                    <Badge
-                      variant={
-                        submission.status === 'approved'
-                          ? 'default'
-                          : submission.status === 'rejected'
-                          ? 'destructive'
-                          : 'secondary'
-                      }
-                    >
-                      {submission.status}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <p className="text-gray-500 text-center py-8">No submissions yet</p>
