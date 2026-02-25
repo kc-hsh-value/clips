@@ -15,12 +15,13 @@ import { EndCampaignButton } from '@/components/admin/end-campaign-button';
 
 interface PlatformConfig {
   id: string;
-  platform: 'x' | 'youtube' | 'tiktok';
+  platform: 'x' | 'youtube' | 'tiktok' | 'instagram';
   rate_per_1k: number;
   multiplier_100k: number;
   multiplier_250k: number;
   max_payout_per_video: number | null;
   is_enabled: boolean;
+  daily_submission_limit?: number;
 }
 
 function getPlatformValue(
@@ -104,9 +105,10 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
       if (platform === 'x') acc.x += submission.views || 0;
       if (platform === 'youtube') acc.youtube += submission.views || 0;
       if (platform === 'tiktok') acc.tiktok += submission.views || 0;
+      if (platform === 'instagram') acc.instagram += submission.views || 0;
       return acc;
     },
-    { x: 0, youtube: 0, tiktok: 0 }
+    { x: 0, youtube: 0, tiktok: 0, instagram: 0 }
   );
 
   return (
@@ -186,7 +188,7 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
                 <p className="text-sm text-gray-600">Total Views</p>
                 <p className="font-medium">{formatViews(totalViews)}</p>
                 <p className="text-xs text-gray-500 mt-1">
-                  X {formatViews(platformViews.x)} • YT {formatViews(platformViews.youtube)} • TT {formatViews(platformViews.tiktok)}
+                  X {formatViews(platformViews.x)} • YT {formatViews(platformViews.youtube)} • TT {formatViews(platformViews.tiktok)} • IG {formatViews(platformViews.instagram)}
                 </p>
               </div>
             </div>
@@ -241,6 +243,10 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
                           ? formatCurrency(config.max_payout_per_video)
                           : 'No cap'}
                       </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Default Daily Clips / Clipper</p>
+                      <p className="text-lg font-semibold">{config.daily_submission_limit ?? 1}</p>
                     </div>
                   </div>
                 </div>

@@ -17,6 +17,7 @@ interface CampaignPlatformOption {
   platform: SubmissionPlatform;
   is_enabled: boolean;
   rate_per_1k: number;
+  daily_submission_limit?: number;
 }
 
 interface CampaignOption {
@@ -28,7 +29,8 @@ interface CampaignOption {
 
 interface SubmitClipFormProps {
   campaigns: CampaignOption[];
-  submittedCampaignPlatformIds: string[];
+  submissionCountsByCampaignPlatform: Record<string, number>;
+  dailyLimitByCampaignPlatform: Record<string, number>;
   preselectedCampaign?: string | null;
 }
 
@@ -36,9 +38,15 @@ const PLATFORM_LABELS: Record<SubmissionPlatform, string> = {
   x: 'X',
   youtube: 'YouTube',
   tiktok: 'TikTok',
+  instagram: 'Instagram',
 };
 
-function SubmitClipFormInner({ campaigns, submittedCampaignPlatformIds, preselectedCampaign }: SubmitClipFormProps) {
+function SubmitClipFormInner({
+  campaigns,
+  submissionCountsByCampaignPlatform,
+  dailyLimitByCampaignPlatform,
+  preselectedCampaign,
+}: SubmitClipFormProps) {
   const router = useRouter();
 
   const [campaignId, setCampaignId] = useState(preselectedCampaign || campaigns[0]?.id || '');
@@ -47,17 +55,23 @@ function SubmitClipFormInner({ campaigns, submittedCampaignPlatformIds, preselec
   const [loading, setLoading] = useState(false);
   const [urlValid, setUrlValid] = useState<boolean | null>(null);
 
+  const getDailyLimit = (platform: CampaignPlatformOption) =>
+    dailyLimitByCampaignPlatform[platform.id] ?? platform.daily_submission_limit ?? 1;
+
+  const getTodayCount = (platform: CampaignPlatformOption) =>
+    submissionCountsByCampaignPlatform[platform.id] || 0;
+
   const selectedCampaign = campaigns.find((campaign) => campaign.id === campaignId);
 
   const availablePlatforms = (selectedCampaign?.platforms || []).filter(
-    (platform) => !submittedCampaignPlatformIds.includes(platform.id)
+    (platform) => getTodayCount(platform) < getDailyLimit(platform)
   );
 
   const selectedPlatform = availablePlatforms.find((platform) => platform.id === campaignPlatformId);
 
   const availableCampaigns = campaigns.filter((campaign) => {
     const hasAvailablePlatform = campaign.platforms.some(
-      (platform) => !submittedCampaignPlatformIds.includes(platform.id)
+      (platform) => getTodayCount(platform) < getDailyLimit(platform)
     );
     return hasAvailablePlatform;
   });
@@ -145,7 +159,7 @@ function SubmitClipFormInner({ campaigns, submittedCampaignPlatformIds, preselec
           <p className="text-gray-600">
             {campaigns.length === 0
               ? "You're not assigned to any active campaigns."
-              : "You've already submitted clips for all available campaign platforms today. Check back tomorrow!"}
+              : "You've reached your daily limits for all available campaign platforms today. Check back tomorrow!"}
           </p>
         </CardContent>
       </Card>
@@ -157,7 +171,7 @@ function SubmitClipFormInner({ campaigns, submittedCampaignPlatformIds, preselec
       <CardHeader>
         <CardTitle>Submit Your Clip</CardTitle>
         <CardDescription>
-          Submit per campaign platform (X / YouTube / TikTok). You can submit 1 clip per platform per campaign per day.
+          Submit per campaign platform (X / YouTube / TikTok / Instagram). Daily limits are configured per campaign platform.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -187,13 +201,13 @@ function SubmitClipFormInner({ campaigns, submittedCampaignPlatformIds, preselec
               <SelectContent>
                 {availablePlatforms.map((platform) => (
                   <SelectItem key={platform.id} value={platform.id}>
-                    {PLATFORM_LABELS[platform.platform]} • {`$${platform.rate_per_1k}/1K`}
+                    {PLATFORM_LABELS[platform.platform]} • {`$${platform.rate_per_1k}/1K`} • {getTodayCount(platform)}/{getDailyLimit(platform)} used
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             {selectedCampaign && availablePlatforms.length === 0 && (
-              <p className="text-sm text-yellow-600">You have already submitted for all platforms of this campaign today.</p>
+              <p className="text-sm text-yellow-600">You have reached your daily limits for all platforms of this campaign today.</p>
             )}
           </div>
 
@@ -210,6 +224,8 @@ function SubmitClipFormInner({ campaigns, submittedCampaignPlatformIds, preselec
                     ? 'https://youtube.com/watch?v=...'
                     : selectedPlatform?.platform === 'tiktok'
                     ? 'https://www.tiktok.com/@user/video/...'
+                    : selectedPlatform?.platform === 'instagram'
+                    ? 'https://www.instagram.com/reels/...'
                     : 'https://x.com/username/status/...'
                 }
                 value={submissionUrl}

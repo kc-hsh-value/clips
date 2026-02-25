@@ -7,7 +7,7 @@ import { Eye, DollarSign, FileVideo, TrendingUp } from 'lucide-react';
 import { formatViews, formatCurrency, calculatePayout } from '@/lib/payout';
 import { format } from 'date-fns';
 
-type Platform = 'x' | 'youtube' | 'tiktok';
+type Platform = 'x' | 'youtube' | 'tiktok' | 'instagram';
 
 interface CampaignPlatformConfig {
   id: string;
@@ -17,6 +17,7 @@ interface CampaignPlatformConfig {
   multiplier_250k: number;
   max_payout_per_video: number | null;
   is_enabled: boolean;
+  daily_submission_limit?: number;
 }
 
 interface CampaignV2 {
@@ -61,13 +62,31 @@ export default async function ClipperDashboard() {
         start_date,
         end_date,
         status,
-        campaign_platforms:campaign_platforms_v2(id, platform, rate_per_1k, multiplier_100k, multiplier_250k, max_payout_per_video, is_enabled)
+        campaign_platforms:campaign_platforms_v2(id, platform, rate_per_1k, multiplier_100k, multiplier_250k, max_payout_per_video, is_enabled, daily_submission_limit)
       )
     `)
     .eq('clipper_id', user.id);
 
   const campaigns = (campaignClippers?.map((cc) => getSingle(cc.campaign)).filter(Boolean) || []) as CampaignV2[];
   const activeCampaigns = campaigns.filter((c) => c?.status === 'active');
+  const activePlatformIds = activeCampaigns.flatMap((campaign) =>
+    (campaign.campaign_platforms || [])
+      .filter((platform) => platform.is_enabled)
+      .map((platform) => platform.id)
+  );
+
+  const { data: limitRows } = activePlatformIds.length
+    ? await supabase
+        .from('campaign_platform_clipper_limits_v2')
+        .select('campaign_platform_id, daily_submission_limit')
+        .eq('clipper_id', user.id)
+        .in('campaign_platform_id', activePlatformIds)
+    : { data: [] as { campaign_platform_id: string; daily_submission_limit: number }[] };
+
+  const dailyLimitByPlatformId = (limitRows || []).reduce<Record<string, number>>((acc, row) => {
+    acc[row.campaign_platform_id] = row.daily_submission_limit;
+    return acc;
+  }, {});
 
   // Get clipper's submissions
   const { data: submissions } = await supabase
@@ -100,7 +119,7 @@ export default async function ClipperDashboard() {
       acc[platform] += submission.views || 0;
       return acc;
     },
-    { x: 0, youtube: 0, tiktok: 0 }
+    { x: 0, youtube: 0, tiktok: 0, instagram: 0 }
   );
 
   const earningsByPlatform = approvedSubmissions.reduce(
@@ -119,10 +138,10 @@ export default async function ClipperDashboard() {
       acc[config.platform] += payout.cappedAmount;
       return acc;
     },
-    { x: 0, youtube: 0, tiktok: 0 }
+    { x: 0, youtube: 0, tiktok: 0, instagram: 0 }
   );
 
-  const totalEarnings = earningsByPlatform.x + earningsByPlatform.youtube + earningsByPlatform.tiktok;
+  const totalEarnings = earningsByPlatform.x + earningsByPlatform.youtube + earningsByPlatform.tiktok + earningsByPlatform.instagram;
 
   const stats = [
     {
@@ -131,7 +150,7 @@ export default async function ClipperDashboard() {
       icon: Eye,
       color: 'text-blue-600',
       bgColor: 'bg-blue-100',
-      breakdown: `X ${formatViews(viewsByPlatform.x)} • YT ${formatViews(viewsByPlatform.youtube)} • TT ${formatViews(viewsByPlatform.tiktok)}`,
+      breakdown: `X ${formatViews(viewsByPlatform.x)} • YT ${formatViews(viewsByPlatform.youtube)} • TT ${formatViews(viewsByPlatform.tiktok)} • IG ${formatViews(viewsByPlatform.instagram)}`,
     },
     {
       title: 'Approved Clips',
@@ -146,7 +165,7 @@ export default async function ClipperDashboard() {
       icon: DollarSign,
       color: 'text-emerald-600',
       bgColor: 'bg-emerald-100',
-      breakdown: `X ${formatCurrency(earningsByPlatform.x)} • YT ${formatCurrency(earningsByPlatform.youtube)} • TT ${formatCurrency(earningsByPlatform.tiktok)}`,
+      breakdown: `X ${formatCurrency(earningsByPlatform.x)} • YT ${formatCurrency(earningsByPlatform.youtube)} • TT ${formatCurrency(earningsByPlatform.tiktok)} • IG ${formatCurrency(earningsByPlatform.instagram)}`,
     },
     {
       title: 'Active Campaigns',
@@ -214,15 +233,34 @@ export default async function ClipperDashboard() {
                   .filter((platform) => platform.is_enabled)
                   .map((platform) => platform.id);
 
-                const submittedPlatformIdsToday = new Set(
-                  todaySubmissions
-                    .map((submission) => submission.campaign_platform_id)
-                    .filter(Boolean)
+                const submissionCountByPlatformId = todaySubmissions.reduce<Record<string, number>>((acc, row) => {
+                  const platformId = row.campaign_platform_id;
+                  if (!platformId) return acc;
+                  acc[platformId] = (acc[platformId] || 0) + 1;
+                  return acc;
+                }, {});
+
+                const dailyLimitByCampaignPlatformId = (campaign.campaign_platforms || [])
+                  .filter((platform) => platform.is_enabled)
+                  .reduce<Record<string, number>>((acc, platform) => {
+                    acc[platform.id] = dailyLimitByPlatformId[platform.id] ?? platform.daily_submission_limit ?? 1;
+                    return acc;
+                  }, {});
+
+                const totalAllowedToday = activePlatformIds.reduce(
+                  (acc, platformId) => acc + (dailyLimitByCampaignPlatformId[platformId] || 0),
+                  0
+                );
+                const usedToday = activePlatformIds.reduce(
+                  (acc, platformId) => acc + (submissionCountByPlatformId[platformId] || 0),
+                  0
                 );
 
-                const submittedPlatformCount = activePlatformIds.filter((id) => submittedPlatformIdsToday.has(id)).length;
-                const allPlatformsSubmittedToday =
-                  activePlatformIds.length > 0 && submittedPlatformCount >= activePlatformIds.length;
+                const hasRemainingCapacity = activePlatformIds.some((platformId) => {
+                  const allowed = dailyLimitByCampaignPlatformId[platformId] || 0;
+                  const used = submissionCountByPlatformId[platformId] || 0;
+                  return allowed > 0 && used < allowed;
+                });
 
                 const rateSummary = (campaign.campaign_platforms || [])
                   .filter((platform) => platform.is_enabled)
@@ -250,7 +288,7 @@ export default async function ClipperDashboard() {
                       </div>
                     </div>
                     <div className="text-right">
-                      {allPlatformsSubmittedToday ? (
+                      {!hasRemainingCapacity ? (
                         <Badge variant="secondary">Submitted today</Badge>
                       ) : (
                         <Link href={`/dashboard/submit?campaign=${campaign?.id}`}>
@@ -258,7 +296,7 @@ export default async function ClipperDashboard() {
                         </Link>
                       )}
                       <p className="text-xs text-gray-500 mt-2">
-                        {submittedPlatformCount}/{activePlatformIds.length} platforms submitted today
+                        {usedToday}/{totalAllowedToday} clips submitted today
                       </p>
                     </div>
                   </div>

@@ -19,13 +19,13 @@ interface SubmissionRow {
   submitted_at: string;
   campaign?: { name?: string | null } | { name?: string | null }[];
   campaign_platform?: {
-    platform?: 'x' | 'youtube' | 'tiktok';
+    platform?: 'x' | 'youtube' | 'tiktok' | 'instagram';
     rate_per_1k?: number;
     multiplier_100k?: number;
     multiplier_250k?: number;
     max_payout_per_video?: number | null;
   } | {
-    platform?: 'x' | 'youtube' | 'tiktok';
+    platform?: 'x' | 'youtube' | 'tiktok' | 'instagram';
     rate_per_1k?: number;
     multiplier_100k?: number;
     multiplier_250k?: number;
@@ -142,10 +142,11 @@ export default async function ClipperDetailsPage({ params }: ClipperDetailsPageP
   const weekStats = summarizeByWindow(submissions, 7);
   const monthStats = summarizeByWindow(submissions, 30);
 
-  const bestByPlatform: Record<'x' | 'youtube' | 'tiktok', SubmissionRow[]> = {
+  const bestByPlatform: Record<'x' | 'youtube' | 'tiktok' | 'instagram', SubmissionRow[]> = {
     x: [],
     youtube: [],
     tiktok: [],
+    instagram: [],
   };
 
   for (const submission of submissions) {
@@ -203,7 +204,7 @@ export default async function ClipperDetailsPage({ params }: ClipperDetailsPageP
           <CardTitle>Performance Windows</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {[
               { label: 'Last 24h', icon: Calendar, stats: dayStats },
               { label: 'Last 7 days', icon: Eye, stats: weekStats },
@@ -257,8 +258,8 @@ export default async function ClipperDetailsPage({ params }: ClipperDetailsPageP
           <CardTitle>Best Submissions by Platform</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {(['x', 'youtube', 'tiktok'] as const).map((platform) => (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {(['x', 'youtube', 'tiktok', 'instagram'] as const).map((platform) => (
               <div key={platform} className="rounded-lg border p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <p className="font-semibold uppercase">{platform}</p>

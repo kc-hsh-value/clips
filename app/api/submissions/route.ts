@@ -40,7 +40,7 @@ export async function POST(request: Request) {
   // Validate selected campaign platform belongs to campaign and is enabled
   const { data: campaignPlatform } = await supabase
     .from('campaign_platforms_v2')
-    .select('id, campaign_id, platform, is_enabled')
+    .select('id, campaign_id, platform, is_enabled, daily_submission_limit')
     .eq('id', campaignPlatformId)
     .single();
 
@@ -59,20 +59,37 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Could not extract external ID from URL' }, { status: 400 });
   }
 
-  // Check if already submitted today for this campaign platform
+  // Resolve per-clipper daily limit for this campaign platform
+  const { data: limitRow } = await supabase
+    .from('campaign_platform_clipper_limits_v2')
+    .select('daily_submission_limit')
+    .eq('campaign_platform_id', campaignPlatformId)
+    .eq('clipper_id', user.id)
+    .maybeSingle();
+
+  const dailyLimit =
+    limitRow?.daily_submission_limit ?? campaignPlatform.daily_submission_limit ?? 1;
+
+  if (dailyLimit <= 0) {
+    return NextResponse.json(
+      { error: 'You are not allowed to submit clips for this campaign platform today' },
+      { status: 403 }
+    );
+  }
+
+  // Check today's submission count against dynamic limit
   const today = new Date().toISOString().split('T')[0];
-  const { data: existingSubmission } = await supabase
+  const { count: todaySubmissionCount } = await supabase
     .from('submissions_v2')
-    .select('id')
+    .select('id', { count: 'exact', head: true })
     .eq('clipper_id', user.id)
     .eq('campaign_platform_id', campaignPlatformId)
     .gte('submitted_at', `${today}T00:00:00`)
-    .lt('submitted_at', `${today}T23:59:59`)
-    .single();
+    .lt('submitted_at', `${today}T23:59:59`);
 
-  if (existingSubmission) {
+  if ((todaySubmissionCount || 0) >= dailyLimit) {
     return NextResponse.json(
-      { error: 'You have already submitted a clip for this campaign platform today' },
+      { error: `Daily limit reached for this campaign platform (${dailyLimit} submissions)` },
       { status: 400 }
     );
   }
@@ -102,6 +119,24 @@ export async function POST(request: Request) {
 
   if (error) {
     console.error('Error creating submission:', error);
+
+    if (error.code === '23505') {
+      if (error.message.includes('submissions_v2_campaign_platform_id_clipper_id_submitted_da_key')) {
+        return NextResponse.json(
+          {
+            error:
+              'Database still enforces one submission per day for this platform. Run supabase/allow_multiple_daily_submissions_v2.sql to enable dynamic daily limits.',
+          },
+          { status: 409 }
+        );
+      }
+
+      return NextResponse.json(
+        { error: 'Duplicate submission detected for this post/platform/day' },
+        { status: 409 }
+      );
+    }
+
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 

@@ -14,19 +14,21 @@ import { toast } from 'sonner';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
-type Platform = 'x' | 'youtube' | 'tiktok';
+type Platform = 'x' | 'youtube' | 'tiktok' | 'instagram';
 
 interface PlatformConfig {
   rate_per_1k: string;
   multiplier_100k: string;
   multiplier_250k: string;
   max_payout_per_video: string;
+  daily_submission_limit: string;
 }
 
 const PLATFORM_OPTIONS: { value: Platform; label: string }[] = [
   { value: 'x', label: 'X' },
   { value: 'youtube', label: 'YouTube' },
   { value: 'tiktok', label: 'TikTok' },
+  { value: 'instagram', label: 'Instagram' },
 ];
 
 const defaultPlatformConfig = (): PlatformConfig => ({
@@ -34,6 +36,7 @@ const defaultPlatformConfig = (): PlatformConfig => ({
   multiplier_100k: '1.25',
   multiplier_250k: '1.50',
   max_payout_per_video: '',
+  daily_submission_limit: '1',
 });
 
 export default function NewCampaignPage() {
@@ -44,6 +47,7 @@ export default function NewCampaignPage() {
     x: defaultPlatformConfig(),
     youtube: defaultPlatformConfig(),
     tiktok: defaultPlatformConfig(),
+    instagram: defaultPlatformConfig(),
   });
   const [form, setForm] = useState({
     name: '',
@@ -89,6 +93,7 @@ export default function NewCampaignPage() {
       const rate = parseFloat(config.rate_per_1k);
       const mult100k = parseFloat(config.multiplier_100k);
       const mult250k = parseFloat(config.multiplier_250k);
+      const dailyLimit = Number(config.daily_submission_limit);
 
       if (Number.isNaN(rate) || Number.isNaN(mult100k) || Number.isNaN(mult250k)) {
         toast.error(`Invalid numeric values for ${platform.toUpperCase()}`);
@@ -104,6 +109,12 @@ export default function NewCampaignPage() {
 
       if (mult250k < mult100k) {
         toast.error(`250K+ multiplier cannot be lower than 100K+ for ${platform.toUpperCase()}`);
+        setLoading(false);
+        return;
+      }
+
+      if (!Number.isInteger(dailyLimit) || dailyLimit < 0) {
+        toast.error(`Daily submission limit must be an integer >= 0 for ${platform.toUpperCase()}`);
         setLoading(false);
         return;
       }
@@ -173,13 +184,15 @@ export default function NewCampaignPage() {
         multiplier_100k: parseFloat(config.multiplier_100k),
         multiplier_250k: parseFloat(config.multiplier_250k),
         max_payout_per_video: config.max_payout_per_video ? parseFloat(config.max_payout_per_video) : null,
+        daily_submission_limit: Number(config.daily_submission_limit),
         is_enabled: true,
       };
     });
 
-    const { error: platformError } = await supabase
+    const { data: insertedPlatforms, error: platformError } = await supabase
       .from('campaign_platforms_v2')
-      .insert(platformRows);
+      .insert(platformRows)
+      .select('id, daily_submission_limit');
 
     if (platformError) {
       await supabase.from('campaigns_v2').delete().eq('id', campaignV2.id);
@@ -187,6 +200,35 @@ export default function NewCampaignPage() {
       toast.error(platformError.message);
       setLoading(false);
       return;
+    }
+
+    const { data: approvedClippers } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('role', 'clipper')
+      .eq('status', 'approved');
+
+    const limitRows = (insertedPlatforms || []).flatMap((platform) =>
+      (approvedClippers || []).map((clipper) => ({
+        campaign_platform_id: platform.id,
+        clipper_id: clipper.id,
+        daily_submission_limit: platform.daily_submission_limit,
+      }))
+    );
+
+    if (limitRows.length > 0) {
+      const { error: limitError } = await supabase
+        .from('campaign_platform_clipper_limits_v2')
+        .insert(limitRows);
+
+      if (limitError) {
+        await supabase.from('campaign_platforms_v2').delete().eq('campaign_id', campaignV2.id);
+        await supabase.from('campaigns_v2').delete().eq('id', campaignV2.id);
+        await supabase.from('campaigns').delete().eq('id', legacyCampaign.id);
+        toast.error(limitError.message);
+        setLoading(false);
+        return;
+      }
     }
 
     toast.success('Campaign created successfully!');
@@ -330,6 +372,19 @@ export default function NewCampaignPage() {
                         value={config.max_payout_per_video}
                         onChange={(e) => updatePlatformConfig(platform, 'max_payout_per_video', e.target.value)}
                         placeholder="Leave empty for no cap"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor={`${platform}-daily-limit`}>Default Daily Clips Per Clipper</Label>
+                      <Input
+                        id={`${platform}-daily-limit`}
+                        type="number"
+                        step="1"
+                        min="0"
+                        value={config.daily_submission_limit}
+                        onChange={(e) => updatePlatformConfig(platform, 'daily_submission_limit', e.target.value)}
+                        required
                       />
                     </div>
                   </CardContent>

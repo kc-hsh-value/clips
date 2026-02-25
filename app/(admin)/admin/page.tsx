@@ -68,9 +68,10 @@ export default async function AdminDashboard() {
       if (platform === 'x') acc.x += s.views || 0;
       if (platform === 'youtube') acc.youtube += s.views || 0;
       if (platform === 'tiktok') acc.tiktok += s.views || 0;
+      if (platform === 'instagram') acc.instagram += s.views || 0;
       return acc;
     },
-    { x: 0, youtube: 0, tiktok: 0 }
+    { x: 0, youtube: 0, tiktok: 0, instagram: 0 }
   );
   const totalPayouts = payoutsData?.reduce((acc, p) => acc + (p.final_amount || 0), 0) || 0;
 
@@ -118,7 +119,7 @@ export default async function AdminDashboard() {
       icon: Eye,
       color: 'text-orange-600',
       bgColor: 'bg-orange-100',
-      breakdown: `X ${formatViews(platformViews.x)} • YT ${formatViews(platformViews.youtube)} • TT ${formatViews(platformViews.tiktok)}`,
+      breakdown: `X ${formatViews(platformViews.x)} • YT ${formatViews(platformViews.youtube)} • TT ${formatViews(platformViews.tiktok)} • IG ${formatViews(platformViews.instagram)}`,
     },
     {
       title: 'Total Payouts',

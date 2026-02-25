@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatViews, formatCurrency, calculatePayout } from '@/lib/payout';
 
-type Platform = 'x' | 'youtube' | 'tiktok';
+type Platform = 'x' | 'youtube' | 'tiktok' | 'instagram';
 
 interface PlatformTotals {
   paid: number;
@@ -64,6 +64,7 @@ const PLATFORM_LABELS: Record<Platform, string> = {
   x: 'X',
   youtube: 'YouTube',
   tiktok: 'TikTok',
+  instagram: 'Instagram',
 };
 
 export default async function EarningsPage() {
@@ -151,6 +152,7 @@ export default async function EarningsPage() {
     x: { paid: 0, pending: 0, processed: 0, potential: 0, views: 0, submissions: 0 },
     youtube: { paid: 0, pending: 0, processed: 0, potential: 0, views: 0, submissions: 0 },
     tiktok: { paid: 0, pending: 0, processed: 0, potential: 0, views: 0, submissions: 0 },
+    instagram: { paid: 0, pending: 0, processed: 0, potential: 0, views: 0, submissions: 0 },
   };
 
   for (const breakdown of breakdownRows) {
@@ -267,8 +269,8 @@ export default async function EarningsPage() {
           <CardTitle>Platform Earnings</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {(['x', 'youtube', 'tiktok'] as Platform[]).map((platform) => (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {(['x', 'youtube', 'tiktok', 'instagram'] as Platform[]).map((platform) => (
               <div key={platform} className="rounded-lg border p-4 space-y-2">
                 <p className="font-semibold uppercase">{PLATFORM_LABELS[platform]}</p>
                 <p className="text-sm text-gray-600">Paid: {formatCurrency(platformTotals[platform].paid)}</p>

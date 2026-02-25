@@ -3,7 +3,7 @@ export type UserStatus = 'pending' | 'approved' | 'rejected';
 export type CampaignStatus = 'draft' | 'active' | 'completed' | 'hidden';
 export type SubmissionStatus = 'pending' | 'approved' | 'rejected';
 export type PayoutStatus = 'pending' | 'processed' | 'paid';
-export type SubmissionPlatform = 'x' | 'youtube' | 'tiktok';
+export type SubmissionPlatform = 'x' | 'youtube' | 'tiktok' | 'instagram';
 
 export interface Profile {
   id: string;

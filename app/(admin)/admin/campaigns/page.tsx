@@ -18,12 +18,12 @@ interface CampaignWithCounts {
   rate_per_1k: number;
   status: string;
   campaign_clippers: { count: number }[];
-  submissions: { count: number }[];
+  submissionCount: number;
   activePlatforms: string[];
 }
 
 function CampaignCard({ campaign, showHideButton = true, showDeleteButton = false }: { campaign: CampaignWithCounts; showHideButton?: boolean; showDeleteButton?: boolean }) {
-  const submissionCount = campaign.submissions?.[0]?.count || 0;
+  const submissionCount = campaign.submissionCount || 0;
   
   return (
     <Card key={campaign.id}>
@@ -104,8 +104,7 @@ export default async function CampaignsPage() {
     .from('campaigns')
     .select(`
       *,
-      campaign_clippers(count),
-      submissions(count)
+      campaign_clippers(count)
     `)
     .order('created_at', { ascending: false });
 
@@ -120,6 +119,13 @@ export default async function CampaignsPage() {
 
   const v2CampaignIds = campaignMappings?.map((mapping) => mapping.id) || [];
 
+  const { data: submissionRows } = v2CampaignIds.length
+    ? await supabase
+        .from('submissions_v2')
+        .select('campaign_id')
+        .in('campaign_id', v2CampaignIds)
+    : { data: [] as { campaign_id: string }[] };
+
   const { data: platformRows } = v2CampaignIds.length
     ? await supabase
         .from('campaign_platforms_v2')
@@ -130,6 +136,13 @@ export default async function CampaignsPage() {
   const legacyByV2Id = new Map(
     (campaignMappings || []).map((mapping) => [mapping.id, mapping.legacy_campaign_id])
   );
+
+  const submissionCountByLegacyCampaign = (submissionRows || []).reduce<Record<string, number>>((acc, row) => {
+    const legacyCampaignId = legacyByV2Id.get(row.campaign_id);
+    if (!legacyCampaignId) return acc;
+    acc[legacyCampaignId] = (acc[legacyCampaignId] || 0) + 1;
+    return acc;
+  }, {});
 
   const platformMapByLegacyCampaign = (platformRows || []).reduce<Record<string, string[]>>((acc, row) => {
     if (!row.is_enabled) return acc;
@@ -149,6 +162,7 @@ export default async function CampaignsPage() {
 
   const campaignsWithPlatforms: CampaignWithCounts[] = (campaigns || []).map((campaign) => ({
     ...campaign,
+    submissionCount: submissionCountByLegacyCampaign[campaign.id] || 0,
     activePlatforms: platformMapByLegacyCampaign[campaign.id] || [],
   }));
 

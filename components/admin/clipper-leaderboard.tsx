@@ -18,7 +18,7 @@ interface ClipperStats {
 }
 
 interface PlatformPayoutConfig {
-  platform: 'x' | 'youtube' | 'tiktok';
+  platform: 'x' | 'youtube' | 'tiktok' | 'instagram';
   ratePerK: number;
   multiplier100k: number;
   multiplier250k: number;
@@ -31,12 +31,13 @@ interface ClipperLeaderboardProps {
 }
 
 type PlatformLeaderboard = Record<string, ClipperStats[]>;
-const PLATFORM_ORDER: Array<'x' | 'youtube' | 'tiktok'> = ['x', 'youtube', 'tiktok'];
+const PLATFORM_ORDER: Array<'x' | 'youtube' | 'tiktok' | 'instagram'> = ['x', 'youtube', 'tiktok', 'instagram'];
 
-const PLATFORM_LABELS: Record<'x' | 'youtube' | 'tiktok', string> = {
+const PLATFORM_LABELS: Record<'x' | 'youtube' | 'tiktok' | 'instagram', string> = {
   x: 'X',
   youtube: 'YouTube',
   tiktok: 'TikTok',
+  instagram: 'Instagram',
 };
 
 function getPlatformValue(

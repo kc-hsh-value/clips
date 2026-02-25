@@ -27,7 +27,7 @@ export default async function SubmissionsPage() {
     .map((submission) => {
       const profile = getSingle(submission.profile as { full_name?: string | null; email: string } | { full_name?: string | null; email: string }[]);
       const campaign = getSingle(submission.campaign as { name?: string | null } | { name?: string | null }[]);
-      const campaignPlatform = getSingle(submission.campaign_platform as { platform?: 'x' | 'youtube' | 'tiktok' } | { platform?: 'x' | 'youtube' | 'tiktok' }[]);
+      const campaignPlatform = getSingle(submission.campaign_platform as { platform?: 'x' | 'youtube' | 'tiktok' | 'instagram' } | { platform?: 'x' | 'youtube' | 'tiktok' | 'instagram' }[]);
 
       if (!campaignPlatform?.platform) return null;
 
@@ -52,7 +52,7 @@ export default async function SubmissionsPage() {
       profile_name: string;
       profile_email: string;
       campaign_name: string;
-      platform: 'x' | 'youtube' | 'tiktok';
+      platform: 'x' | 'youtube' | 'tiktok' | 'instagram';
     }[];
 
   return (

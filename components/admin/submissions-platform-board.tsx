@@ -11,7 +11,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { formatViews } from '@/lib/payout';
 import { SubmissionActions } from '@/components/admin/submission-actions';
 
-type Platform = 'x' | 'youtube' | 'tiktok';
+type Platform = 'x' | 'youtube' | 'tiktok' | 'instagram';
 type Status = 'pending' | 'approved' | 'rejected';
 type SortBy = 'newest' | 'oldest' | 'views_desc' | 'views_asc';
 type Scope = 'all' | 'pending' | 'old';
@@ -32,12 +32,13 @@ interface SubmissionsPlatformBoardProps {
   submissions: SubmissionItem[];
 }
 
-const PLATFORMS: Platform[] = ['x', 'youtube', 'tiktok'];
+const PLATFORMS: Platform[] = ['x', 'youtube', 'tiktok', 'instagram'];
 
 const PLATFORM_LABELS: Record<Platform, string> = {
   x: 'X',
   youtube: 'YouTube',
   tiktok: 'TikTok',
+  instagram: 'Instagram',
 };
 
 function sortSubmissions(list: SubmissionItem[], sortBy: SortBy) {
@@ -98,7 +99,7 @@ export function SubmissionsPlatformBoard({ submissions }: SubmissionsPlatformBoa
         acc[platform] = submissions.filter((submission) => submission.platform === platform).length;
         return acc;
       },
-      { x: 0, youtube: 0, tiktok: 0 }
+      { x: 0, youtube: 0, tiktok: 0, instagram: 0 }
     );
   }, [submissions]);
 
@@ -129,7 +130,7 @@ export function SubmissionsPlatformBoard({ submissions }: SubmissionsPlatformBoa
         </Select>
       </div>
 
-      <Tabs defaultValue="x" className="w-full">
+      <Tabs defaultValue={PLATFORMS[0]} className="w-full">
         <TabsList>
           {PLATFORMS.map((platform) => (
             <TabsTrigger key={platform} value={platform}>

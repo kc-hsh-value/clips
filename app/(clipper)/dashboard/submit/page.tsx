@@ -3,9 +3,10 @@ import { SubmitClipForm } from '@/components/clipper/submit-form';
 
 interface CampaignPlatformOption {
   id: string;
-  platform: 'x' | 'youtube' | 'tiktok';
+  platform: 'x' | 'youtube' | 'tiktok' | 'instagram';
   is_enabled: boolean;
   rate_per_1k: number;
+  daily_submission_limit?: number;
 }
 
 interface CampaignOption {
@@ -31,7 +32,7 @@ export default async function SubmitPage() {
         name,
         description,
         status,
-        platforms:campaign_platforms_v2(id, platform, is_enabled, rate_per_1k)
+        platforms:campaign_platforms_v2(id, platform, is_enabled, rate_per_1k, daily_submission_limit)
       )
     `)
     .eq('clipper_id', user.id);
@@ -47,6 +48,21 @@ export default async function SubmitPage() {
       platforms: (campaign.platforms || []).filter((platform) => platform.is_enabled),
     }));
 
+  const platformIds = campaigns.flatMap((campaign) => campaign.platforms.map((platform) => platform.id));
+
+  const { data: limitRows } = platformIds.length
+    ? await supabase
+        .from('campaign_platform_clipper_limits_v2')
+        .select('campaign_platform_id, daily_submission_limit')
+        .eq('clipper_id', user.id)
+        .in('campaign_platform_id', platformIds)
+    : { data: [] as { campaign_platform_id: string; daily_submission_limit: number }[] };
+
+  const dailyLimitByCampaignPlatform = (limitRows || []).reduce<Record<string, number>>((acc, row) => {
+    acc[row.campaign_platform_id] = row.daily_submission_limit;
+    return acc;
+  }, {});
+
   // Get today's submissions to check limits
   const today = new Date().toISOString().split('T')[0];
   const { data: todaySubmissions } = await supabase
@@ -56,7 +72,11 @@ export default async function SubmitPage() {
     .gte('submitted_at', `${today}T00:00:00`)
     .lt('submitted_at', `${today}T23:59:59`);
 
-  const submittedCampaignPlatformIds = todaySubmissions?.map((s) => s.campaign_platform_id) || [];
+  const submissionCountsByCampaignPlatform = (todaySubmissions || []).reduce<Record<string, number>>((acc, row) => {
+    if (!row.campaign_platform_id) return acc;
+    acc[row.campaign_platform_id] = (acc[row.campaign_platform_id] || 0) + 1;
+    return acc;
+  }, {});
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -67,7 +87,8 @@ export default async function SubmitPage() {
 
       <SubmitClipForm
         campaigns={campaigns as { id: string; name: string; description: string | null; platforms: CampaignPlatformOption[] }[]}
-        submittedCampaignPlatformIds={submittedCampaignPlatformIds}
+        submissionCountsByCampaignPlatform={submissionCountsByCampaignPlatform}
+        dailyLimitByCampaignPlatform={dailyLimitByCampaignPlatform}
       />
     </div>
   );

@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { fetchTweetViews } from '@/lib/twitter';
 import { fetchYouTubeViews } from '@/lib/youtube';
 import { fetchTikTokViewsFromUrl } from '@/lib/tiktok';
+import { fetchInstagramStatsFromUrl } from '@/lib/instagram';
 
 // This endpoint can be called by a cron job (e.g., Vercel Cron)
 // to update view counts for all approved submissions
@@ -43,7 +44,7 @@ export async function GET(request: Request) {
       campaign_platform?: { platform?: string } | { platform?: string }[] | null;
     }).campaign_platform;
     const platform = Array.isArray(relation) ? relation[0]?.platform : relation?.platform;
-    return platform === 'x' || platform === 'youtube' || platform === 'tiktok';
+    return platform === 'x' || platform === 'youtube' || platform === 'tiktok' || platform === 'instagram';
   });
 
   if (updatableSubmissions.length === 0) {
@@ -60,21 +61,22 @@ export async function GET(request: Request) {
   let xTotal = 0;
   let youtubeTotal = 0;
   let tiktokTotal = 0;
+  let instagramTotal = 0;
 
   let updated = 0;
   let failed = 0;
 
   for (const submission of updatableSubmissions) {
     try {
-      if (!submission.external_id) {
-        failed++;
-        continue;
-      }
-
       const relation = (submission as {
         campaign_platform?: { platform?: string } | { platform?: string }[] | null;
       }).campaign_platform;
       const platform = Array.isArray(relation) ? relation[0]?.platform : relation?.platform;
+
+      if ((platform === 'x' || platform === 'youtube') && !submission.external_id) {
+        failed++;
+        continue;
+      }
 
       let views: number | null = null;
 
@@ -89,6 +91,12 @@ export async function GET(request: Request) {
         if (submission.url) {
           const tiktokResult = await fetchTikTokViewsFromUrl(submission.url);
           views = tiktokResult.views;
+        }
+      } else if (platform === 'instagram') {
+        instagramTotal++;
+        if (submission.url) {
+          const instagramResult = await fetchInstagramStatsFromUrl(submission.url);
+          views = instagramResult?.views ?? null;
         }
       } else {
         continue;
@@ -126,6 +134,7 @@ export async function GET(request: Request) {
     xTotal,
     youtubeTotal,
     tiktokTotal,
+    instagramTotal,
     updated,
     failed,
     skipped: submissions.length - updatableSubmissions.length,

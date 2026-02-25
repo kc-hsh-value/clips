@@ -28,7 +28,7 @@ interface CampaignV2Row {
 interface CampaignPlatformRow {
   id: string;
   campaign_id: string;
-  platform: 'x' | 'youtube' | 'tiktok';
+  platform: 'x' | 'youtube' | 'tiktok' | 'instagram';
   rate_per_1k: number;
   multiplier_100k: number;
   multiplier_250k: number;

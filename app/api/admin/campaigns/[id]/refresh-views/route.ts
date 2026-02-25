@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchTweetViews } from '@/lib/twitter';
 import { fetchYouTubeViews } from '@/lib/youtube';
 import { fetchTikTokViewsFromUrl } from '@/lib/tiktok';
+import { fetchInstagramStatsFromUrl } from '@/lib/instagram';
 
 export async function POST(
   request: Request,
@@ -59,7 +60,7 @@ export async function POST(
       campaign_platform?: { platform?: string } | { platform?: string }[] | null;
     }).campaign_platform;
     const platform = Array.isArray(relation) ? relation[0]?.platform : relation?.platform;
-    return platform === 'x' || platform === 'youtube' || platform === 'tiktok';
+    return platform === 'x' || platform === 'youtube' || platform === 'tiktok' || platform === 'instagram';
   });
 
   if (updatableSubmissions.length === 0) {
@@ -78,6 +79,7 @@ export async function POST(
   let xTotal = 0;
   let youtubeTotal = 0;
   let tiktokTotal = 0;
+  let instagramTotal = 0;
   const results: { id: string; views: number | null; error?: string }[] = [];
 
   for (const submission of updatableSubmissions) {
@@ -111,6 +113,16 @@ export async function POST(
 
         const tiktokResult = await fetchTikTokViewsFromUrl((submission as { url: string }).url);
         views = tiktokResult.views;
+      } else if (platform === 'instagram') {
+        instagramTotal++;
+        if (!(submission as { url?: string | null }).url) {
+          failed++;
+          results.push({ id: submission.id, views: null, error: 'Missing url' });
+          continue;
+        }
+
+        const instagramResult = await fetchInstagramStatsFromUrl((submission as { url: string }).url);
+        views = instagramResult?.views ?? null;
       } else {
         continue;
       }
@@ -151,6 +163,7 @@ export async function POST(
     xTotal,
     youtubeTotal,
     tiktokTotal,
+    instagramTotal,
     updated,
     failed,
     skipped: submissions.length - updatableSubmissions.length,
